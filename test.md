@@ -2,6 +2,7 @@
 
 I wrote a Python static site generator to automate building HTML files for posts and projects. You can look at my code at [https://github.com/srburk/samburkhard.com](https://github.com/srburk/samburkhard.com).
 
+![Beautiful art](https://upload.wikimedia.org/wikipedia/commons/thumb/d/df/Les_Tilleuls_à_Poissy.png/479px-Les_Tilleuls_à_Poissy.png)
 
 ## Motivation
 

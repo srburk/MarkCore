@@ -6,8 +6,10 @@
 typedef enum {
 	ROOT_NODE,
 	PARAGRAPH_NODE,
+	TEXT_NODE,
 	LINK_NODE,
 	HEADER_NODE,
+	IMAGE_NODE,
 	NODE_TYPE_COUNT
 } MarkCoreNodeType_t;
 

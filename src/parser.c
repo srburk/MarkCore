@@ -93,12 +93,50 @@ static char *seek_next_char(char *p, const char c) {
 	return NULL;
 }
 
+// Full Line ==================================================
+
+static MarkCoreNode_t *markcore_parse_image(char *p) {
+
+	char *start = p;
+	
+	p++;
+	if (*p != '[') return NULL;
+	
+	char *close_bracket = seek_next_char(p, ']');
+	if (!close_bracket) return NULL;
+	
+	p = close_bracket + 1;
+	if (*p != '(') return NULL;
+	char *open_link = p;
+	
+	char *close_link = seek_next_char(p, ')');
+	if (!close_link) return NULL;
+
+	p = start + 2; // set read head to start of text label
+	size_t text_len = close_bracket - p;
+	char *text = malloc(text_len);
+	strncpy(text, p, text_len);
+	text[text_len] = '\0';
+	
+	printf("%s\n", text);
+	
+	p = close_bracket + 2; // set read head to start of url
+	size_t url_len = close_link - open_link - 1;
+    char *url = malloc(url_len);
+    memcpy(url, p, url_len);
+    url[url_len] = '\0';
+    
+	MarkCoreNode_t *link_node = create_node(IMAGE_NODE, text);
+	link_node->data = url;
+	
+	return link_node;
+}
+
 // Inline Methods ==============================================
 
-static MarkCoreNode_t *markcore_parse_link(char *p) {
+static MarkCoreNode_t *markcore_parse_link(char **p_ptr) {
 
-	printf("Checking link in: %s\n", p);
-
+	char *p = *p_ptr;
 	char *start = p;
 	
 	char *close_bracket = seek_next_char(p, ']');
@@ -110,7 +148,7 @@ static MarkCoreNode_t *markcore_parse_link(char *p) {
 	
 	char *close_link = seek_next_char(p, ')');
 	if (!close_link) return NULL;
-	
+
 	p = start + 1; // set read head to start of text label
 	size_t text_len = close_bracket - p;
 	char *text = malloc(text_len);
@@ -124,9 +162,11 @@ static MarkCoreNode_t *markcore_parse_link(char *p) {
     char *url = malloc(url_len);
     memcpy(url, p, url_len);
     url[url_len] = '\0';
-
+    
 	MarkCoreNode_t *link_node = create_node(LINK_NODE, text);
 	link_node->data = url;
+	
+	*p_ptr = close_link + 1; // set read head
 	return link_node;
 }
 
@@ -142,12 +182,10 @@ static MarkCoreNode_t *markcore_parse_inline(char *line, size_t len) {
 
 	while (*p != '\0' && *p != '\n') {
 		switch (*p) {
-		case '[':
-			new_node = markcore_parse_link(p);
+		case '[': // links
+			new_node = markcore_parse_link(&p);
 			if (new_node) { 
 				add_child_node(current, new_node);
-			} else {
-				printf("Malformed link\n");
 			}
  			break;
  		case '*':
@@ -190,6 +228,9 @@ MarkCoreNode_t *markcore_parse_line(char *markdown, size_t len) {
 			root->header_level = header_count;
 			return root; // header have no inline rendering
 			break;
+		case '!': // check for image
+			return markcore_parse_image(p);
+			break;
 		default:
 			// probably just a regular, check overall state to determine if in block quote or other
 			return markcore_parse_inline(p, len);
@@ -205,6 +246,7 @@ static char *type_labels[NODE_TYPE_COUNT] = {
 	[ROOT_NODE] = "Root",
 	[HEADER_NODE] = "Header",
 	[LINK_NODE] = "Link",
+	[IMAGE_NODE] = "Image",
 	[PARAGRAPH_NODE] = "Paragraph"
 };
 
