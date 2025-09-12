@@ -5,6 +5,8 @@
 
 typedef enum {
 	ROOT_NODE,
+	PARAGRAPH_NODE,
+	LINK_NODE,
 	HEADER_NODE,
 	NODE_TYPE_COUNT
 } MarkCoreNodeType_t;
@@ -19,6 +21,7 @@ typedef struct MarkCoreNode {
 	// type-specific data
 	union {
         int header_level;
+        char *data;
     };
 } MarkCoreNode_t;
 

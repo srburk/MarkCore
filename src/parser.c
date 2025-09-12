@@ -46,6 +46,10 @@ static void add_child_node(MarkCoreNode_t *parent, MarkCoreNode_t *child) {
 	parent->child_count++;
 }
 
+// static void free_tree(MarkCoreNode_t *root) {
+// 	// clean up entire tree
+// }
+
 // Core Parser functions
 
 MarkCoreNode_t *markcore_parse(char *markdown, size_t len) {
@@ -77,6 +81,86 @@ MarkCoreNode_t *markcore_parse(char *markdown, size_t len) {
 	return root;
 }
 
+// Helper ======================================================
+
+static char *seek_next_char(char *p, const char c) {
+	while (*p != '\0') {
+		if (*p == c) {
+			return p;
+		}
+		p++;
+	}
+	return NULL;
+}
+
+// Inline Methods ==============================================
+
+static MarkCoreNode_t *markcore_parse_link(char *p) {
+
+	printf("Checking link in: %s\n", p);
+
+	char *start = p;
+	
+	char *close_bracket = seek_next_char(p, ']');
+	if (!close_bracket) return NULL;
+	
+	p = close_bracket + 1;
+	if (*p != '(') return NULL;
+	char *open_link = p;
+	
+	char *close_link = seek_next_char(p, ')');
+	if (!close_link) return NULL;
+	
+	p = start + 1; // set read head to start of text label
+	size_t text_len = close_bracket - p;
+	char *text = malloc(text_len);
+	strncpy(text, p, text_len);
+	text[text_len] = '\0';
+	
+	printf("%s\n", text);
+	
+	p = close_bracket + 2; // set read head to start of url
+	size_t url_len = close_link - open_link - 1;
+    char *url = malloc(url_len);
+    memcpy(url, p, url_len);
+    url[url_len] = '\0';
+
+	MarkCoreNode_t *link_node = create_node(LINK_NODE, text);
+	link_node->data = url;
+	return link_node;
+}
+
+// recursive tree builder for inline parsing, cature and handle bold, italics, links, etc.
+static MarkCoreNode_t *markcore_parse_inline(char *line, size_t len) {
+	
+	MarkCoreNode_t *line_node = create_node(PARAGRAPH_NODE, NULL);
+	MarkCoreNode_t *current = line_node;
+	
+	char *p = line;
+	
+	MarkCoreNode_t *new_node;
+
+	while (*p != '\0' && *p != '\n') {
+		switch (*p) {
+		case '[':
+			new_node = markcore_parse_link(p);
+			if (new_node) { 
+				add_child_node(current, new_node);
+			} else {
+				printf("Malformed link\n");
+			}
+ 			break;
+ 		case '*':
+ 			break;
+		default:
+			break;
+		}
+		p++;
+	}
+	
+	return line_node;
+}
+
 MarkCoreNode_t *markcore_parse_line(char *markdown, size_t len) {
 	// construct tree for markdown line
 	
@@ -86,20 +170,29 @@ MarkCoreNode_t *markcore_parse_line(char *markdown, size_t len) {
 	char *p = markdown;
 	
 	while (*p == ' ' || *p == '\t') p++; // trim leading whitespace
-		
+	
 	int header_count;
+	char *content;
+	
 	switch (*p) {
 		case '#':
 			// heading, count number
 			header_count = 0;
 			while ((size_t)(p - markdown) < len && *p == '#') { header_count++; p++; };
-			MarkCoreNode_t *header_node = create_node(HEADER_NODE, p);
-			header_node->header_level = header_count;
-			add_child_node(current, header_node);
+			
+			// convert root to header
+			root->type = HEADER_NODE;
+			content = strdup(p);
+			if (!content) {
+				fprintf(stderr, "Failed to copy content: %s\n", p);
+			}
+			root->content = content;
+			root->header_level = header_count;
 			return root; // header have no inline rendering
 			break;
 		default:
 			// probably just a regular, check overall state to determine if in block quote or other
+			return markcore_parse_inline(p, len);
 			break;
 	}
 	
@@ -110,7 +203,9 @@ MarkCoreNode_t *markcore_parse_line(char *markdown, size_t len) {
 
 static char *type_labels[NODE_TYPE_COUNT] = {
 	[ROOT_NODE] = "Root",
-	[HEADER_NODE] = "Header"
+	[HEADER_NODE] = "Header",
+	[LINK_NODE] = "Link",
+	[PARAGRAPH_NODE] = "Paragraph"
 };
 
 void markcore_print_tree(MarkCoreNode_t *node, int depth) {
@@ -127,8 +222,10 @@ void markcore_print_tree(MarkCoreNode_t *node, int depth) {
 	
 	if (node->type == HEADER_NODE) {
 		printf("Header %i – %s\n", node->header_level, node->content);
+	} else if (node->type == LINK_NODE) {
+		printf("Link – \"%s\" to URL \"%s\"\n", node->content, node->data);
 	} else {
-		printf("%s\n", type_labels[node->type]);	
+		printf("%s - %s\n", type_labels[node->type], node->content);	
 	}
     
     for (i = 0; i < node->child_count; i++) {
