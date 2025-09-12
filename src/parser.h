@@ -10,6 +10,9 @@ typedef enum {
 	LINK_NODE,
 	HEADER_NODE,
 	IMAGE_NODE,
+	BOLD_NODE,
+	ITALIC_NODE,
+	BOLD_ITALIC_NODE,
 	NODE_TYPE_COUNT
 } MarkCoreNodeType_t;
 

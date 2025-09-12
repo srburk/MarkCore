@@ -117,12 +117,10 @@ static MarkCoreNode_t *markcore_parse_image(char *p) {
 	char *text = malloc(text_len);
 	strncpy(text, p, text_len);
 	text[text_len] = '\0';
-	
-	printf("%s\n", text);
-	
+		
 	p = close_bracket + 2; // set read head to start of url
 	size_t url_len = close_link - open_link - 1;
-    char *url = malloc(url_len);
+    char *url = malloc(url_len + 1);
     memcpy(url, p, url_len);
     url[url_len] = '\0';
     
@@ -154,12 +152,10 @@ static MarkCoreNode_t *markcore_parse_link(char **p_ptr) {
 	char *text = malloc(text_len);
 	strncpy(text, p, text_len);
 	text[text_len] = '\0';
-	
-	printf("%s\n", text);
-	
+		
 	p = close_bracket + 2; // set read head to start of url
 	size_t url_len = close_link - open_link - 1;
-    char *url = malloc(url_len);
+    char *url = malloc(url_len + 1);
     memcpy(url, p, url_len);
     url[url_len] = '\0';
     
@@ -168,6 +164,45 @@ static MarkCoreNode_t *markcore_parse_link(char **p_ptr) {
 	
 	*p_ptr = close_link + 1; // set read head
 	return link_node;
+}
+
+static MarkCoreNode_t *markcore_parse_italics_bold(char **p_ptr) {
+	
+	char *p = *p_ptr;
+	char *start = p;
+		
+	int delimiter_count = 0;
+	while (*p != '\0' && *p == '*' && delimiter_count < 3) { delimiter_count++; p++; };
+	
+	char *next_delimiter;
+	for (int i = 0; i < delimiter_count; i++) {
+		next_delimiter = seek_next_char(p, '*');
+		if (!next_delimiter) return NULL;
+	}
+		
+	p = start + delimiter_count;
+	size_t text_len = next_delimiter - p;
+	char *text = malloc(text_len + 1);
+	strncpy(text, p, text_len);
+	text[text_len] = '\0';
+	
+	MarkCoreNode_t *italics_bold_node;
+	// for now just put all content in (I know this is a recursive inline parse)
+	switch (delimiter_count) {
+		case 1:
+			italics_bold_node = create_node(ITALIC_NODE, text);
+			break;
+		case 2:
+			italics_bold_node = create_node(BOLD_NODE, text);
+			break;
+		case 3:
+			italics_bold_node = create_node(BOLD_ITALIC_NODE, text);
+			break;
+	}
+	
+	*p_ptr = next_delimiter + 1;
+	
+	return italics_bold_node;
 }
 
 // recursive tree builder for inline parsing, cature and handle bold, italics, links, etc.
@@ -189,6 +224,10 @@ static MarkCoreNode_t *markcore_parse_inline(char *line, size_t len) {
 			}
  			break;
  		case '*':
+ 			new_node = markcore_parse_italics_bold(&p);
+ 			if (new_node) {
+ 				add_child_node(current, new_node);
+ 			}
  			break;
 		default:
 			break;
@@ -231,6 +270,9 @@ MarkCoreNode_t *markcore_parse_line(char *markdown, size_t len) {
 		case '!': // check for image
 			return markcore_parse_image(p);
 			break;
+		case '*':
+			return markcore_parse_inline(p+1, len);
+			break;
 		default:
 			// probably just a regular, check overall state to determine if in block quote or other
 			return markcore_parse_inline(p, len);
@@ -247,7 +289,10 @@ static char *type_labels[NODE_TYPE_COUNT] = {
 	[HEADER_NODE] = "Header",
 	[LINK_NODE] = "Link",
 	[IMAGE_NODE] = "Image",
-	[PARAGRAPH_NODE] = "Paragraph"
+	[PARAGRAPH_NODE] = "Paragraph",
+	[BOLD_NODE] = "Bold",
+	[ITALIC_NODE] = "Italic",
+	[BOLD_ITALIC_NODE] = "Bold AND Italic",
 };
 
 void markcore_print_tree(MarkCoreNode_t *node, int depth) {

@@ -6,7 +6,7 @@ I wrote a Python static site generator to automate building HTML files for posts
 
 ## Motivation
 
-I've been wanting to update this website for quite a while, but I have found it frustrating to keep updating the HTML for projects and posts as I add them. The easiest approach here is to integrate an existing static site generator (SSG) to automate the build process for sub HTML pages, but I've resisted doing that because I've found that they are often too heavy for my needs. 
+I've *been* wanting to update this website for quite a while, but I have found it frustrating to keep updating the HTML for projects and posts as I add them. The easiest approach here is to integrate an existing static site generator (SSG) to automate the build process for sub HTML pages, but I've resisted doing that because I've found that they are often too heavy for my needs. 
 
 For this reason, I decided to quickly build a simple SSG to accomplish my very limited needs. These are the main features I want:
 
