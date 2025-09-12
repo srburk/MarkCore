@@ -10,7 +10,7 @@ I've *been* wanting to update this website for quite a while, but I have found i
 
 For this reason, I decided to quickly build a simple SSG to accomplish my very limited needs. These are the main features I want:
 
-* **Uses Markdown** – Much simpler than writing in HTML, and [Apple Notes now supports markdown export in iOS 26](https://daringfireball.net/linked/2025/06/04/apple-notes-markdown). 
+* **Uses Markdown** – Much simpler than writing in HTML, and **[Apple Notes now supports markdown export in iOS 26](https://daringfireball.net/linked/2025/06/04/apple-notes-markdown)**. 
 * **Generates an RSS feed** – I'm a big RSS user, even though it's older than me (Google says the New York Times started offering RSS feeds in 2002). I find it frustrating when sites don't support it, so it'd be hypocritical if I didn't.
 * **Simple Templates** – I still need some form of templating for posts like this, so just basic variable injection is sufficient.
 
@@ -299,7 +299,7 @@ I just threw it in `.github/workflows/build-and-deploy.yml` and made sure Action
 
 ## Closing
 
-And that's it! I will probably spin the SSG into a separate git repo at some point and use it in this website as a submodule, but as far as I'm concerned, this solves all the problems I have right now. 
+**And that's it! I will *probably* spin the SSG into a separate git repo at some point and use it in this website as a submodule, but as far as I'm concerned, this solves all the problems I have right now.**
 
 Clearly this is a simple project, and by no means was this an attempt at a full-scale production solution. Don't throw away Hugo or Astro! Here is a list of future improvements /changes I hope to make:
 

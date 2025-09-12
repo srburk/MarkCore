@@ -8,6 +8,17 @@
 
 #define INITIAL_CHILD_CAPACITY 1
 
+// Forward declaration
+
+static MarkCoreNode_t *markcore_parse_image(char *p);
+
+static void markcore_parse_inline_range(MarkCoreNode_t *parent_node, char *start, char *end);
+
+static MarkCoreNode_t *markcore_parse_link(char **p_ptr);
+static MarkCoreNode_t *markcore_parse_italics_bold(char **p_ptr);
+
+static void debug_print_range(const char *start, const char *end, const char *label);
+
 // Tree functions
 
 static MarkCoreNode_t *create_node(MarkCoreNodeType_t type, const char *content) {
@@ -173,32 +184,37 @@ static MarkCoreNode_t *markcore_parse_italics_bold(char **p_ptr) {
 		
 	int delimiter_count = 0;
 	while (*p != '\0' && *p == '*' && delimiter_count < 3) { delimiter_count++; p++; };
-	
-	char *next_delimiter;
-	for (int i = 0; i < delimiter_count; i++) {
-		next_delimiter = seek_next_char(p, '*');
+		
+	char *next_delimiter = seek_next_char(p, '*');
+	if (!next_delimiter) return NULL;
+
+	for (;;) {
+		if (delimiter_count == 1) {
+			break;
+		}
+		if (delimiter_count == 2) {
+			if (*(next_delimiter + 1) == '*') {
+				break;
+			}
+		} else if (delimiter_count == 3) {
+			if (*(next_delimiter + 1) == '*' && *(next_delimiter + 2) == '*') {
+				break;
+			}
+		}
+		next_delimiter = seek_next_char(next_delimiter + 1, '*');
 		if (!next_delimiter) return NULL;
 	}
-		
-	p = start + delimiter_count;
-	size_t text_len = next_delimiter - p;
-	char *text = malloc(text_len + 1);
-	strncpy(text, p, text_len);
-	text[text_len] = '\0';
-	
+				
 	MarkCoreNode_t *italics_bold_node;
-	// for now just put all content in (I know this is a recursive inline parse)
 	switch (delimiter_count) {
-		case 1:
-			italics_bold_node = create_node(ITALIC_NODE, text);
-			break;
-		case 2:
-			italics_bold_node = create_node(BOLD_NODE, text);
-			break;
-		case 3:
-			italics_bold_node = create_node(BOLD_ITALIC_NODE, text);
-			break;
+		case 1: italics_bold_node = create_node(ITALIC_NODE, NULL); break;
+		case 2: italics_bold_node = create_node(BOLD_NODE, NULL); break;
+		case 3: italics_bold_node = create_node(BOLD_ITALIC_NODE, NULL); break;
 	}
+	
+	p = start + delimiter_count;
+	
+	markcore_parse_inline_range(italics_bold_node, p, next_delimiter);
 	
 	*p_ptr = next_delimiter + 1;
 	
@@ -206,27 +222,24 @@ static MarkCoreNode_t *markcore_parse_italics_bold(char **p_ptr) {
 }
 
 // recursive tree builder for inline parsing, cature and handle bold, italics, links, etc.
-static MarkCoreNode_t *markcore_parse_inline(char *line, size_t len) {
+static void markcore_parse_inline_range(MarkCoreNode_t *parent_node, char *start, char *end) {	
 	
-	MarkCoreNode_t *line_node = create_node(PARAGRAPH_NODE, NULL);
-	MarkCoreNode_t *current = line_node;
-	
-	char *p = line;
+	char *p = start;
 	
 	MarkCoreNode_t *new_node;
-
-	while (*p != '\0' && *p != '\n') {
+	
+	while (p < end) {
 		switch (*p) {
 		case '[': // links
 			new_node = markcore_parse_link(&p);
 			if (new_node) { 
-				add_child_node(current, new_node);
+				add_child_node(parent_node, new_node);
 			}
  			break;
  		case '*':
  			new_node = markcore_parse_italics_bold(&p);
  			if (new_node) {
- 				add_child_node(current, new_node);
+ 				add_child_node(parent_node, new_node);
  			}
  			break;
 		default:
@@ -234,15 +247,12 @@ static MarkCoreNode_t *markcore_parse_inline(char *line, size_t len) {
 		}
 		p++;
 	}
-	
-	return line_node;
 }
 
 MarkCoreNode_t *markcore_parse_line(char *markdown, size_t len) {
 	// construct tree for markdown line
 	
 	MarkCoreNode_t *root = create_node(ROOT_NODE, NULL);
-	MarkCoreNode_t *current = root;
 	
 	char *p = markdown;
 	
@@ -268,14 +278,19 @@ MarkCoreNode_t *markcore_parse_line(char *markdown, size_t len) {
 			return root; // header have no inline rendering
 			break;
 		case '!': // check for image
-			return markcore_parse_image(p);
+			markcore_parse_image(p);
 			break;
-		case '*':
-			return markcore_parse_inline(p+1, len);
+		case '*': // check for bullet first, then inline
+			if (*p + 1 == ' ') {
+				// bullet
+				markcore_parse_inline_range(root, p+1, markdown+len);
+			} else {
+				markcore_parse_inline_range(root, p, markdown+len);
+			}
 			break;
 		default:
 			// probably just a regular, check overall state to determine if in block quote or other
-			return markcore_parse_inline(p, len);
+			markcore_parse_inline_range(root, p, markdown+len);
 			break;
 	}
 	
@@ -283,6 +298,23 @@ MarkCoreNode_t *markcore_parse_line(char *markdown, size_t len) {
 }
 
 // DEBUG ===========================================
+
+static void debug_print_range(const char *start, const char *end, const char *label) {
+    if (!start || !end || start >= end) {
+        printf("[DEBUG] %s: <empty or invalid range> (%p to %p)\n", label ? label : "range", start, end);
+        return;
+    }
+    size_t len = end - start;
+    char *buffer = malloc(len + 1);
+    if (!buffer) {
+        fprintf(stderr, "[DEBUG] %s: failed to allocate buffer\n", label ? label : "range");
+        return;
+    }
+    memcpy(buffer, start, len);
+    buffer[len] = '\0';
+    printf("[DEBUG] %s: \"%s\"\n", label ? label : "range", buffer);
+    free(buffer);
+}
 
 static char *type_labels[NODE_TYPE_COUNT] = {
 	[ROOT_NODE] = "Root",
