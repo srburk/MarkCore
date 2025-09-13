@@ -220,9 +220,7 @@ static void markcore_parse_inline_range(char *start, char *end) {
 	
 	MCNode_t *top_node = stack_peek(node_stack);
 	MCNode_t *new_node;
-	
-	stack_print(node_stack, print_node);
-	
+		
 	char *last_text = start;
 	char *og_p;
 	while (p < end) {
@@ -324,6 +322,12 @@ static void markcore_parse_line(char *start, size_t len) {
 	
 	MCNode_t *temp_node; // for header / image creation
 	
+	// Skip formatting if in code block
+	if (top_node->type == CODE_BLOCK_NODE && strncmp(p, "```", 3) != 0) {
+		flush_text(start, start + len);
+		return;
+	}
+	
 	switch (*p) {
 		case '#':
 			temp_node = markcore_parse_header(p);
@@ -349,17 +353,33 @@ static void markcore_parse_line(char *start, size_t len) {
 					top_node = list_node;
 				}
 				p++; // advance over bullet point
-// 				markcore_parse_inline_range(p+1, start+len);
 			}
+			break;
+		case '`': // code blocks not inline
+		
+			if (strncmp(p, "```", 3) == 0) {
+				// code block!
+				if (top_node->type != CODE_BLOCK_NODE) {
+					MCNode_t *code_block_node = create_node(CODE_BLOCK_NODE, NULL);
+					add_child_node(top_node, code_block_node);
+					stack_push(node_stack, code_block_node);
+					top_node = code_block_node;
+					return; // start next line
+				} else {
+					(void)stack_pop(node_stack);
+					top_node = stack_peek(node_stack);
+					return; // start next line
+				}
+			}
+			
 			break;
 		default:
 		
-			// dumb check for now, more complicated state machine to follow:
+			// escape multi-line node types
 			if (top_node->type == UNORDERED_LIST_NODE) {
 				(void)stack_pop(node_stack);
 				top_node = stack_peek(node_stack);
 			}
-			break;
 	}
 	
 	MCNode_t *line_node = create_node(LINE_NODE, NULL);
@@ -387,19 +407,6 @@ static void debug_print_range(const char *start, const char *end, const char *la
     printf("[DEBUG] %s: \"%s\"\n", label ? label : "range", buffer);
     free(buffer);
 }
-
-static char *type_labels[NODE_TYPE_COUNT] = {
-	[ROOT_NODE] = "Root",
-	[HEADER_NODE] = "Header",
-	[LINK_NODE] = "Link",
-	[IMAGE_NODE] = "Image",
-	[LINE_NODE] = "Line",
-	[BOLD_NODE] = "Bold",
-	[ITALIC_NODE] = "Italic",
-	[BOLD_ITALIC_NODE] = "Bold AND Italic",
-	[UNORDERED_LIST_NODE] = "Unordered list",
-	[TEXT_NODE] = "Text",
-};
 
 void print_node(void *n) {
     MCNode_t *node = (MCNode_t*)n;
