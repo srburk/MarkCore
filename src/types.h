@@ -25,10 +25,8 @@ typedef struct MCNode {
 	int child_capacity;
 	
 	// type-specific data
-	union {
-        int header_level;
-        char *data;
-    };
+	int header_level;
+	char *data;
 } MCNode_t;
 
 static char *type_labels[NODE_TYPE_COUNT] = {

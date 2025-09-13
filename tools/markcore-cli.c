@@ -25,10 +25,10 @@ int main(int argc, char **argv) {
     fclose(fp);
     
     char *html = markcore_render(buffer, size);
-    printf("%s\n", html);
+//     printf("%s\n", html);
     
     free(buffer);
-    free(html);
+//     free(html);
     
     return 0;
 }

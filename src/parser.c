@@ -30,13 +30,12 @@ static void debug_print_range(const char *start, const char *end, const char *la
 static MCNode_t *create_node(MCNodeType_e type, const char *content) {
 	MCNode_t *node = malloc(sizeof(MCNode_t));
     if (!node) return NULL;
-
     node->type = type;
     node->content = content ? strdup(content) : NULL;
     node->children = NULL;
     node->child_count = 0;
     node->child_capacity = 0;
-
+	node->data = NULL;
     return node;
 }
 
@@ -149,7 +148,7 @@ static MCNode_t *markcore_parse_link(char **p_ptr) {
 
 	p = start + 1; // set read head to start of text label
 	size_t text_len = close_bracket - p;
-	char *text = malloc(text_len);
+	char *text = malloc(text_len + 1);
 	strncpy(text, p, text_len);
 	text[text_len] = '\0';
 		
@@ -273,7 +272,7 @@ static MCNode_t *markcore_parse_image(char *p) {
 
 	p = start + 2; // set read head to start of text label
 	size_t text_len = close_bracket - p;
-	char *text = malloc(text_len);
+	char *text = malloc(text_len + 1);
 	strncpy(text, p, text_len);
 	text[text_len] = '\0';
 		
@@ -387,6 +386,20 @@ static void markcore_parse_line(char *start, size_t len) {
 	add_child_node(top_node, line_node);
 	markcore_parse_inline_range(p, start+len);
 	(void)stack_pop(node_stack);	
+}
+
+void markcore_free_syntax_tree(MCNode_t *node) {
+	// 	DFS, free buffers and free nodes
+	if (!node) return;
+	for (int i = 0; i < node->child_count; i++) {
+		MCNode_t *child = node->children[i];
+    	if (child) {
+			markcore_free_syntax_tree(child);
+			if (child->content) free(child->content);
+			if (child->data) free(child->data);
+			free(child);
+    	}
+	}
 }
 
 // DEBUG ===========================================

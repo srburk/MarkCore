@@ -11,6 +11,9 @@ add_library(markcore STATIC
 	src/stack.c
 )
 
+add_compile_options(-fsanitize=address)
+add_link_options(-fsanitize=address)
+
 target_include_directories(markcore PUBLIC include)
 
 if(MARKCORE_BUILD_CLI)
