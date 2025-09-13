@@ -5,35 +5,23 @@
 #include <string.h>
 #include <stdio.h>
 
-
 #define LINE_BUFFER_SIZE 1024
 #define INITIAL_CHILD_CAPACITY 1
 
-// context is passed between lines for multi line dependencies (multi-level lists, code blocks, etc.) 
-// Should have a way of keeping track of current line type, and a parent node
-typedef struct {
-// 	MCNode_t *parent
-	Stack_t *stack;
-
-// 	union {
-// 		int level;
-// 	} details;
-} MCParserContext_t;
+static Stack_t *node_stack;
 
 // Forward declaration ======================================================
 
-static MCParserContext_t create_parser_context(void);
-
-static void markcore_parse_line(char *markdown, size_t len, MCParserContext_t *context);
+static void markcore_parse_line(char *markdown, size_t len);
 
 static MCNode_t *markcore_parse_image(char *p);
 
-static void markcore_parse_inline_range(MCNode_t *parent_node, char *start, char *end);
+static void markcore_parse_inline_range(char *start, char *end);
 
 static MCNode_t *markcore_parse_link(char **p_ptr);
 static MCNode_t *markcore_parse_italics_bold(char **p_ptr);
 
-static void flush_text(MCNode_t *parent_node, char *start, char *end);
+static void flush_text(char *start, char *end);
 
 static void debug_print_range(const char *start, const char *end, const char *label);
 
@@ -88,9 +76,11 @@ MCNode_t *markcore_parse(char *markdown, size_t len) {
 	char *p = markdown;
 	char line[LINE_BUFFER_SIZE];
 	
-	MCParserContext_t context = {};
-	context.stack = stack_create(4);
-	stack_push(context.stack, root);
+// 	MCParserContext_t context = {};
+// 	context.stack = stack_create(4);
+	if (node_stack) stack_free(node_stack);
+	node_stack = stack_create(4);
+	stack_push(node_stack, root);
 
 	while (*p && ((size_t)(p - markdown) < len)) {
 		size_t line_len = 0;
@@ -103,16 +93,14 @@ MCNode_t *markcore_parse(char *markdown, size_t len) {
 		strncpy(line, p, line_len);
 		line[line_len] = '\0';
 		
-		markcore_parse_line(line, line_len, &context);
-		
-// 		if (line_node) {
-// 			add_child_node(root, line_node);
-// 		}
+		markcore_parse_line(line, line_len);
 
 		p += line_len;
 		
 		if (*p == '\n') p++;
 	}
+	
+	stack_free(node_stack);
 
 	return root;
 }
@@ -130,15 +118,16 @@ static char *seek_next_char(char *p, const char c) {
 }
 
 // add text node to parent (call this right before adding a bold child node for example)
-static void flush_text(MCNode_t *parent_node, char *start, char *end) {
+static void flush_text(char *start, char *end) {
 	if (start == end || start > end) return;
 	size_t len = end - start;
 	char *text_buffer = malloc(len + 1);
 	strncpy(text_buffer, start, len);
 	text_buffer[len] = '\0';
-			
+	
+	MCNode_t *top_node = stack_peek(node_stack);
 	MCNode_t *text_node = create_node(TEXT_NODE, text_buffer);
-	add_child_node(parent_node, text_node);
+	add_child_node(top_node, text_node);
 }
 
 // Inline Methods ==============================================
@@ -212,9 +201,12 @@ static MCNode_t *markcore_parse_italics_bold(char **p_ptr) {
 		case 3: italics_bold_node = create_node(BOLD_ITALIC_NODE, NULL); break;
 	}
 	
-	p = start + delimiter_count;
 	
-	markcore_parse_inline_range(italics_bold_node, p, next_delimiter);
+	p = start + delimiter_count;
+
+	stack_push(node_stack, italics_bold_node);
+	markcore_parse_inline_range(p, next_delimiter);
+	(void)stack_pop(node_stack);
 	
 	*p_ptr = next_delimiter + delimiter_count;
 	
@@ -222,11 +214,14 @@ static MCNode_t *markcore_parse_italics_bold(char **p_ptr) {
 }
 
 // recursive tree builder for inline parsing, cature and handle bold, italics, links, etc.
-static void markcore_parse_inline_range(MCNode_t *parent_node, char *start, char *end) {	
+static void markcore_parse_inline_range(char *start, char *end) {	
 	
 	char *p = start;
 	
+	MCNode_t *top_node = stack_peek(node_stack);
 	MCNode_t *new_node;
+	
+	stack_print(node_stack, print_node);
 	
 	char *last_text = start;
 	char *og_p;
@@ -236,17 +231,17 @@ static void markcore_parse_inline_range(MCNode_t *parent_node, char *start, char
 		case '[': // links
 			new_node = markcore_parse_link(&p);
 			if (new_node) { 
-				flush_text(parent_node, last_text, og_p);
+				flush_text(last_text, og_p);
 				last_text = p;
-				add_child_node(parent_node, new_node);
+				add_child_node(top_node, new_node);
 			}
  			break;
  		case '*':
  			new_node = markcore_parse_italics_bold(&p);
  			if (new_node) {
-				flush_text(parent_node, last_text, og_p);
+				flush_text(last_text, og_p);
 				last_text = p;
- 				add_child_node(parent_node, new_node);
+ 				add_child_node(top_node, new_node);
  			}
  			break;
 		default:
@@ -255,7 +250,7 @@ static void markcore_parse_inline_range(MCNode_t *parent_node, char *start, char
 		p++;
 	}
 	if (last_text < end) {
-		flush_text(parent_node, last_text, end); // flush remaining text
+		flush_text(last_text, end); // flush remaining text
 	}
 }
 
@@ -315,16 +310,18 @@ static MCNode_t *markcore_parse_header(char *p) {
 	return header_node;
 }
 
-static void markcore_parse_line(char *start, size_t len, MCParserContext_t *context) {
+static void markcore_parse_line(char *start, size_t len) {
 	// construct tree for start line
 	char *p = start;	
 	while (*p == ' ' || *p == '\t') p++; // trim leading whitespace
 	if (*p == '\n' || *p == '\0') return; // skip empty lines
-		
-// 	int header_count;
-// 	char *content;
-
-	MCNode_t *top_node = stack_peek(context->stack);
+	
+	MCNode_t *top_node = stack_peek(node_stack);
+	if (!top_node) {
+		fprintf(stderr, "Error, stack is empty\n");
+		return;
+	}
+	
 	MCNode_t *temp_node; // for header / image creation
 	
 	switch (*p) {
@@ -348,28 +345,28 @@ static void markcore_parse_line(char *start, size_t len, MCParserContext_t *cont
 				if (top_node->type != UNORDERED_LIST_NODE) {
 					MCNode_t *list_node = create_node(UNORDERED_LIST_NODE, NULL);
 					add_child_node(top_node, list_node);
-					stack_push(context->stack, list_node);
+					stack_push(node_stack, list_node);
 					top_node = list_node;
 				}
-// 				
-				markcore_parse_inline_range(top_node, p+1, start+len);
-			} else {
-				markcore_parse_inline_range(top_node, p, start+len);
+				p++; // advance over bullet point
+// 				markcore_parse_inline_range(p+1, start+len);
 			}
 			break;
 		default:
 		
 			// dumb check for now, more complicated state machine to follow:
 			if (top_node->type == UNORDERED_LIST_NODE) {
-				// clean up
-				(void)stack_pop(context->stack);
-				top_node = stack_peek(context->stack);
+				(void)stack_pop(node_stack);
+				top_node = stack_peek(node_stack);
 			}
-		
-			// probably just a regular, check overall state to determine if in block quote or other
-			markcore_parse_inline_range(top_node, p, start+len);
 			break;
 	}
+	
+	MCNode_t *line_node = create_node(LINE_NODE, NULL);
+	stack_push(node_stack, line_node);
+	add_child_node(top_node, line_node);
+	markcore_parse_inline_range(p, start+len);
+	(void)stack_pop(node_stack);	
 }
 
 // DEBUG ===========================================
@@ -403,6 +400,11 @@ static char *type_labels[NODE_TYPE_COUNT] = {
 	[UNORDERED_LIST_NODE] = "Unordered list",
 	[TEXT_NODE] = "Text",
 };
+
+void print_node(void *n) {
+    MCNode_t *node = (MCNode_t*)n;
+    printf("{type=%s}", type_labels[node->type]);
+}
 
 void markcore_print_tree(MCNode_t *node, int depth) {
 	if (!node) return;

@@ -27,7 +27,20 @@ void *stack_peek(Stack_t *s) {
     return s->items[s->size - 1];
 }
 
-void stack_destroy(Stack_t *s) {
+void stack_free(Stack_t *s) {
     free(s->items);
     free(s);
+}
+
+void stack_print(Stack_t *s, void (*item_print)(void *item)) {
+	if (s->size == 0) {
+		printf("Stack empty\n");
+	} else {
+		printf("Stack: ");
+		for (int i = 0; i < s->size; i ++) {
+			item_print(s->items[i]);
+			if (i < s->size - 1) printf(" -> ");
+		}
+		printf("\n");
+	}
 }
