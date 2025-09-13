@@ -2,6 +2,8 @@
 #include "markcore.h"
 #include "buffer.h"
 #include "parser.h"
+#include "types.h"
+
 #include <stdio.h>
 
 #define DYNAMIC_BUFFER_INITIAL_SIZE 1024
@@ -16,7 +18,7 @@ char *markcore_render(const char *markdown, size_t length) {
 	}
 	
 	
-	MarkCoreNode_t *node = markcore_parse(markdown, length);
+	MCNode_t *node = markcore_parse(markdown, length);
 	markcore_print_tree(node, 0);
 	
 	return buffer.data;

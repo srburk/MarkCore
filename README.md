@@ -9,3 +9,5 @@ Why? - Feature complete + extensibility for plugins for grammar/spellcheck plann
 [] Add finish code for parser to free synax tree
 [] Smart tree diff algorithm for renderer?
 [] Add state management for parser
+
+[] Auto numbered list

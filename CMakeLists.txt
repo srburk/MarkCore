@@ -8,6 +8,7 @@ add_library(markcore STATIC
 	src/parser.c
 	src/renderer.c
 	src/buffer.c
+	src/stack.c
 )
 
 target_include_directories(markcore PUBLIC include)
