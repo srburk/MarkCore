@@ -17,6 +17,8 @@ static void markcore_parse_inline_range(MarkCoreNode_t *parent_node, char *start
 static MarkCoreNode_t *markcore_parse_link(char **p_ptr);
 static MarkCoreNode_t *markcore_parse_italics_bold(char **p_ptr);
 
+static void flush_text(MarkCoreNode_t *parent_node, char *start, char *end);
+
 static void debug_print_range(const char *start, const char *end, const char *label);
 
 // Tree functions
@@ -82,8 +84,10 @@ MarkCoreNode_t *markcore_parse(char *markdown, size_t len) {
 		line[line_len] = '\0';
 		
 		MarkCoreNode_t *line_node = markcore_parse_line(line, line_len);
-		add_child_node(root, line_node);
-		
+		if (line_node) {
+				add_child_node(root, line_node);
+		}
+
 		p += line_len;
 		
 		if (*p == '\n') p++;
@@ -104,41 +108,16 @@ static char *seek_next_char(char *p, const char c) {
 	return NULL;
 }
 
-// Full Line ==================================================
-
-static MarkCoreNode_t *markcore_parse_image(char *p) {
-
-	char *start = p;
-	
-	p++;
-	if (*p != '[') return NULL;
-	
-	char *close_bracket = seek_next_char(p, ']');
-	if (!close_bracket) return NULL;
-	
-	p = close_bracket + 1;
-	if (*p != '(') return NULL;
-	char *open_link = p;
-	
-	char *close_link = seek_next_char(p, ')');
-	if (!close_link) return NULL;
-
-	p = start + 2; // set read head to start of text label
-	size_t text_len = close_bracket - p;
-	char *text = malloc(text_len);
-	strncpy(text, p, text_len);
-	text[text_len] = '\0';
-		
-	p = close_bracket + 2; // set read head to start of url
-	size_t url_len = close_link - open_link - 1;
-    char *url = malloc(url_len + 1);
-    memcpy(url, p, url_len);
-    url[url_len] = '\0';
-    
-	MarkCoreNode_t *link_node = create_node(IMAGE_NODE, text);
-	link_node->data = url;
-	
-	return link_node;
+// add text node to parent (call this right before adding a bold child node for example)
+static void flush_text(MarkCoreNode_t *parent_node, char *start, char *end) {
+	if (start == end || start > end) return;
+	size_t len = end - start;
+	char *text_buffer = malloc(len + 1);
+	strncpy(text_buffer, start, len);
+	text_buffer[len] = '\0';
+			
+	MarkCoreNode_t *text_node = create_node(TEXT_NODE, text_buffer);
+	add_child_node(parent_node, text_node);
 }
 
 // Inline Methods ==============================================
@@ -216,7 +195,7 @@ static MarkCoreNode_t *markcore_parse_italics_bold(char **p_ptr) {
 	
 	markcore_parse_inline_range(italics_bold_node, p, next_delimiter);
 	
-	*p_ptr = next_delimiter + 1;
+	*p_ptr = next_delimiter + delimiter_count;
 	
 	return italics_bold_node;
 }
@@ -228,17 +207,24 @@ static void markcore_parse_inline_range(MarkCoreNode_t *parent_node, char *start
 	
 	MarkCoreNode_t *new_node;
 	
+	char *last_text = start;
+	char *og_p;
 	while (p < end) {
+		og_p = p;
 		switch (*p) {
 		case '[': // links
 			new_node = markcore_parse_link(&p);
 			if (new_node) { 
+				flush_text(parent_node, last_text, og_p);
+				last_text = p;
 				add_child_node(parent_node, new_node);
 			}
  			break;
  		case '*':
  			new_node = markcore_parse_italics_bold(&p);
  			if (new_node) {
+				flush_text(parent_node, last_text, og_p);
+				last_text = p;
  				add_child_node(parent_node, new_node);
  			}
  			break;
@@ -247,16 +233,55 @@ static void markcore_parse_inline_range(MarkCoreNode_t *parent_node, char *start
 		}
 		p++;
 	}
+	if (last_text < end) {
+		flush_text(parent_node, last_text, end); // flush remaining text
+	}
 }
 
-MarkCoreNode_t *markcore_parse_line(char *markdown, size_t len) {
-	// construct tree for markdown line
+// Full Lines ==========================================================
+
+static MarkCoreNode_t *markcore_parse_image(char *p) {
+
+	char *start = p;
 	
-	MarkCoreNode_t *root = create_node(ROOT_NODE, NULL);
+	p++;
+	if (*p != '[') return NULL;
 	
-	char *p = markdown;
+	char *close_bracket = seek_next_char(p, ']');
+	if (!close_bracket) return NULL;
 	
+	p = close_bracket + 1;
+	if (*p != '(') return NULL;
+	char *open_link = p;
+	
+	char *close_link = seek_next_char(p, ')');
+	if (!close_link) return NULL;
+
+	p = start + 2; // set read head to start of text label
+	size_t text_len = close_bracket - p;
+	char *text = malloc(text_len);
+	strncpy(text, p, text_len);
+	text[text_len] = '\0';
+		
+	p = close_bracket + 2; // set read head to start of url
+	size_t url_len = close_link - open_link - 1;
+    char *url = malloc(url_len + 1);
+    memcpy(url, p, url_len);
+    url[url_len] = '\0';
+    
+	MarkCoreNode_t *link_node = create_node(IMAGE_NODE, text);
+	link_node->data = url;
+	
+	return link_node;
+}
+
+MarkCoreNode_t *markcore_parse_line(char *start, size_t len) {
+	// construct tree for start line
+	char *p = start;	
 	while (*p == ' ' || *p == '\t') p++; // trim leading whitespace
+	if (*p == '\n' || *p == '\0') return NULL; // skip empty lines
+	
+	MarkCoreNode_t *root = create_node(LINE_NODE, NULL);
 	
 	int header_count;
 	char *content;
@@ -265,7 +290,7 @@ MarkCoreNode_t *markcore_parse_line(char *markdown, size_t len) {
 		case '#':
 			// heading, count number
 			header_count = 0;
-			while ((size_t)(p - markdown) < len && *p == '#') { header_count++; p++; };
+			while ((size_t)(p - start) < len && *p == '#') { header_count++; p++; };
 			
 			// convert root to header
 			root->type = HEADER_NODE;
@@ -283,14 +308,14 @@ MarkCoreNode_t *markcore_parse_line(char *markdown, size_t len) {
 		case '*': // check for bullet first, then inline
 			if (*p + 1 == ' ') {
 				// bullet
-				markcore_parse_inline_range(root, p+1, markdown+len);
+				markcore_parse_inline_range(root, p+1, start+len);
 			} else {
-				markcore_parse_inline_range(root, p, markdown+len);
+				markcore_parse_inline_range(root, p, start+len);
 			}
 			break;
 		default:
 			// probably just a regular, check overall state to determine if in block quote or other
-			markcore_parse_inline_range(root, p, markdown+len);
+			markcore_parse_inline_range(root, p, start+len);
 			break;
 	}
 	
@@ -321,10 +346,11 @@ static char *type_labels[NODE_TYPE_COUNT] = {
 	[HEADER_NODE] = "Header",
 	[LINK_NODE] = "Link",
 	[IMAGE_NODE] = "Image",
-	[PARAGRAPH_NODE] = "Paragraph",
+	[LINE_NODE] = "Line",
 	[BOLD_NODE] = "Bold",
 	[ITALIC_NODE] = "Italic",
 	[BOLD_ITALIC_NODE] = "Bold AND Italic",
+	[TEXT_NODE] = "Text",
 };
 
 void markcore_print_tree(MarkCoreNode_t *node, int depth) {
@@ -339,12 +365,18 @@ void markcore_print_tree(MarkCoreNode_t *node, int depth) {
 		printf("└── ");
 	}
 	
-	if (node->type == HEADER_NODE) {
-		printf("Header %i – %s\n", node->header_level, node->content);
-	} else if (node->type == LINK_NODE) {
-		printf("Link – \"%s\" to URL \"%s\"\n", node->content, node->data);
-	} else {
-		printf("%s - %s\n", type_labels[node->type], node->content);	
+	switch (node->type) {
+		case LINK_NODE:
+			printf("Link – %s (%s)\n", node->content, node->data);
+			break;
+		case HEADER_NODE:
+			printf("Header %i\n", node->header_level);
+			break;
+		case TEXT_NODE:
+			printf("Text – %s\n", node->content);
+			break;
+		default:
+			printf("%s\n", type_labels[node->type]);
 	}
     
     for (i = 0; i < node->child_count; i++) {

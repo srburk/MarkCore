@@ -5,7 +5,7 @@
 
 typedef enum {
 	ROOT_NODE,
-	PARAGRAPH_NODE,
+	LINE_NODE,
 	TEXT_NODE,
 	LINK_NODE,
 	HEADER_NODE,
