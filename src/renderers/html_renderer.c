@@ -15,6 +15,7 @@ static void html_render_paragraph_close(Renderer_t *r);
 
 static void html_render_code_block_open(Renderer_t *r);
 static void html_render_code_block_close(Renderer_t *r);
+static void html_render_code_block_line(Renderer_t *r, const char *text);
 static void html_render_code_inline(Renderer_t *r, const char *text);
 
 static void html_render_bold_open(Renderer_t *r);
@@ -52,6 +53,7 @@ Renderer_t create_html_renderer(FILE *dest) {
 	
 	renderer.render_code_block_open = html_render_code_block_open;
 	renderer.render_code_block_close = html_render_code_block_close;
+	renderer.render_code_block_line = html_render_code_block_line;
 	
 	renderer.render_code_inline = html_render_code_inline;
 
@@ -102,6 +104,20 @@ static void html_render_code_block_open(Renderer_t *r) {
 
 static void html_render_code_block_close(Renderer_t *r) {
 	fprintf(r->outfile, "</code></pre>");
+}
+
+static void html_render_code_block_line(Renderer_t *r, const char *text) {
+	// no formatting
+	for (const char *p = text; *p; p++) {
+		switch (*p) {
+            case '&': fputs("&amp;", r->outfile); break;
+            case '<': fputs("&lt;", r->outfile); break;
+            case '>': fputs("&gt;", r->outfile); break;
+            case '"': fputs("&quot;", r->outfile); break;
+            case '\'': fputs("&#39;", r->outfile); break;
+            default: fputc(*p, r->outfile); break;
+        }
+	}
 }
 
 static void html_render_code_inline(Renderer_t *r, const char *text) {

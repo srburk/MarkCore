@@ -22,6 +22,7 @@ typedef struct Renderer {
 	
 	void (*render_code_block_open)(struct Renderer*);
 	void (*render_code_block_close)(struct Renderer*);
+	void (*render_code_block_line)(struct Renderer*, const char *text);
 	
 	void (*render_code_inline)(struct Renderer*, const char *text);
 	

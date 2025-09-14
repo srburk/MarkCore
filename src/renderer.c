@@ -116,11 +116,12 @@ void render_syntax_tree(Renderer_t *r, MCNode_t *node) {
 			break;
 
 		case TEXT_NODE: 
-		
-			SAFE_RENDER_CALL(r, render_text, node->content);
-			
+				
 			if (top_node_type && *top_node_type == CODE_BLOCK_NODE) {
+				SAFE_RENDER_CALL(r, render_code_block_line, node->content);
 				SAFE_RENDER_CALL(r, render_line_end);
+			} else {
+				SAFE_RENDER_CALL(r, render_text, node->content);
 			}
 		
 			break;
