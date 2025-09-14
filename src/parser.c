@@ -63,17 +63,13 @@ static void add_child_node(MCNode_t *parent, MCNode_t *child) {
 	parent->child_count++;
 }
 
-// static void free_tree(MCNode_t *root) {
-// 	// clean up entire tree
-// }
-
 // Core Parser functions ========================================================
 
-MCNode_t *markcore_parse(char *markdown, size_t len) {
+MCNode_t *markcore_parse(const char *markdown, size_t len) {
 
 	MCNode_t *root = create_node(ROOT_NODE, NULL);
 
-	char *p = markdown;
+	const char *p = markdown;
 	char line[LINE_BUFFER_SIZE];
 	
 // 	MCParserContext_t context = {};
@@ -488,11 +484,6 @@ static void debug_print_range(const char *start, const char *end, const char *la
     buffer[len] = '\0';
     printf("[DEBUG] %s: \"%s\"\n", label ? label : "range", buffer);
     free(buffer);
-}
-
-void print_node(void *n) {
-    MCNode_t *node = (MCNode_t*)n;
-    printf("{type=%s}", type_labels[node->type]);
 }
 
 void markcore_print_tree(MCNode_t *node, int depth) {

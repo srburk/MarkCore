@@ -7,8 +7,6 @@
 
 #include <stdio.h>
 
-#define DYNAMIC_BUFFER_INITIAL_SIZE 1024
-
 // Public ===========================================
 
 size_t markcore_render_to_file(const char *markdown, size_t length, FILE *out_file) {

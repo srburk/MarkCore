@@ -5,10 +5,8 @@
 #include "types.h"
 
 // Parse full markdown buffer and return tree
-MCNode_t *markcore_parse(char *markdown, size_t len);
+MCNode_t *markcore_parse(const char *markdown, size_t len);
 void markcore_free_syntax_tree(MCNode_t *root);
-
-void print_node(void *n);
 
 // DEBUG ======================================
 
