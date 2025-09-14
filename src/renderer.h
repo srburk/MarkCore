@@ -1,6 +1,8 @@
 #ifndef MARKCORE_RENDERER_H
 #define MARKCORE_RENDERER_H
 
+#include <stdio.h>
+
 #include "types.h"
 #include "stack.h"
 
@@ -41,6 +43,7 @@ typedef struct Renderer {
 	void (*render_list_item_close)(struct Renderer*);
 } Renderer_t;
 
-void render_syntax_tree(Renderer_t *r, MCNode_t *node);
+size_t render_syntax_tree(Renderer_t *r, MCNode_t *node);
+void renderer_destroy(Renderer_t *r); // clean up stack
 
 #endif

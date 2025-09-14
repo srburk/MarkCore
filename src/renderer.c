@@ -15,6 +15,12 @@
 
 // default renderer
 
+void renderer_destroy(Renderer_t *r) {
+	if (!r) return;
+	stack_free(r->node_stack);
+	free(r);
+}
+
 static void traverse_children(Renderer_t *r, MCNode_t *node) {
 	for (int i = 0; i < node->child_count; i++) {
 		render_syntax_tree(r, node->children[i]);
@@ -70,9 +76,9 @@ static void handle_list(Renderer_t *r, MCNode_t *node) {
 }
 
 // using recursion here so I can swap in specific renderers
-void render_syntax_tree(Renderer_t *r, MCNode_t *node) {
+size_t render_syntax_tree(Renderer_t *r, MCNode_t *node) {
 
-	if (!node) return;
+	if (!node) return 0;
 	
 	MCNodeType_e *top_node_type = stack_peek(r->node_stack);
 	

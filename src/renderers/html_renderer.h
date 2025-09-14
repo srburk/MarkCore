@@ -5,6 +5,6 @@
 #include "../renderer.h"
 #include <stdio.h>
 
-Renderer_t create_html_renderer(FILE *dest);
+Renderer_t *create_html_renderer(FILE *dest);
 
 #endif

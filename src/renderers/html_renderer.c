@@ -34,44 +34,45 @@ static void html_render_list_item_close(Renderer_t *r);
 
 // Renderer =================================================
 
-Renderer_t create_html_renderer(FILE *dest) {
+Renderer_t *create_html_renderer(FILE *dest) {
 	
-	Renderer_t renderer = {};
+	Renderer_t *r = malloc(sizeof(Renderer_t));
+	if (!r) return NULL;
 	
-	renderer.outfile = dest;
-	renderer.node_stack = stack_create(4);
+	r->outfile = dest;
+	r->node_stack = stack_create(4);
 	
-	renderer.render_header = html_render_header;
-	renderer.render_text = html_render_text;
-	renderer.render_image = html_render_image;
-	renderer.render_link = html_render_link;
+	r->render_header = html_render_header;
+	r->render_text = html_render_text;
+	r->render_image = html_render_image;
+	r->render_link = html_render_link;
 	
-	renderer.render_line_end = html_render_line_end;
+	r->render_line_end = html_render_line_end;
 	
-	renderer.render_paragraph_open = html_render_paragraph_open;
-	renderer.render_paragraph_close = html_render_paragraph_close;
+	r->render_paragraph_open = html_render_paragraph_open;
+	r->render_paragraph_close = html_render_paragraph_close;
 	
-	renderer.render_code_block_open = html_render_code_block_open;
-	renderer.render_code_block_close = html_render_code_block_close;
-	renderer.render_code_block_line = html_render_code_block_line;
+	r->render_code_block_open = html_render_code_block_open;
+	r->render_code_block_close = html_render_code_block_close;
+	r->render_code_block_line = html_render_code_block_line;
 	
-	renderer.render_code_inline = html_render_code_inline;
+	r->render_code_inline = html_render_code_inline;
 
-	renderer.render_bold_open = html_render_bold_open;
-	renderer.render_bold_close = html_render_bold_close;
+	r->render_bold_open = html_render_bold_open;
+	r->render_bold_close = html_render_bold_close;
 	
-	renderer.render_italic_open = html_render_italic_open;
-	renderer.render_italic_close = html_render_italic_close;
+	r->render_italic_open = html_render_italic_open;
+	r->render_italic_close = html_render_italic_close;
 	
-	renderer.render_unordered_list_open = html_render_unordered_list_open;
-	renderer.render_unordered_list_close = html_render_unordered_list_close;
-	renderer.render_ordered_list_open = html_render_ordered_list_open;
-	renderer.render_ordered_list_close = html_render_ordered_list_close;
+	r->render_unordered_list_open = html_render_unordered_list_open;
+	r->render_unordered_list_close = html_render_unordered_list_close;
+	r->render_ordered_list_open = html_render_ordered_list_open;
+	r->render_ordered_list_close = html_render_ordered_list_close;
 	
-	renderer.render_list_item_open = html_render_list_item_open;
-	renderer.render_list_item_close = html_render_list_item_close;
+	r->render_list_item_open = html_render_list_item_open;
+	r->render_list_item_close = html_render_list_item_close;
 	
-	return renderer;
+	return r;
 }
 
 static void html_render_header(Renderer_t *r, int header_level, const char *text) {

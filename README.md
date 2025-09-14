@@ -36,6 +36,8 @@ Enable debugging with flag `-DCMAKE_BUILD_TYPE=Debug`
 [] Smart tree diff algorithm for renderer?
 [X] Add state management for parser
 
+[] Fill out public interface (output options, cli flags, etc.)
+
 [X] Auto numbered list
 [X] Fix code blocks having HTML styling
 [] Refactor to store string bounds in original buffer instead of copying every time

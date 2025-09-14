@@ -3,16 +3,11 @@
 #ifndef MARKCORE_H
 #define MARKCORE_H
 
-#include <stddef.h> 
 #include <stdio.h>
 
-typedef enum {
-	HTML_FORMAT
-} MarkCoreOutputFormat_e;
-
-typedef enum {
-	enable_code_blocks = 1 << 0,
-} MarkCoreOptions_e;
+// typedef enum {
+// 	enable_code_blocks = 1 << 0,
+// } MarkCoreOptions_e;
 
 /*
 Returns dynamically allocated array with contents. Please free()
