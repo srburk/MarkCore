@@ -360,6 +360,14 @@ static MCNode_t *markcore_parse_header(char *p) {
 	return header_node;
 }
 
+static void escape_if_in_list(MCNode_t **top_node) {
+	if ((*top_node)->type == UNORDERED_LIST_NODE || (*top_node)->type == ORDERED_LIST_NODE) {
+		// skip multi line
+		(void)stack_pop(node_stack);
+		*top_node = stack_peek(node_stack);
+	}
+}
+
 static void markcore_parse_line(char *start, size_t len) {
 	// construct tree for start line
 	char *p = start;	
@@ -382,6 +390,7 @@ static void markcore_parse_line(char *start, size_t len) {
 	
 	switch (*p) {
 		case '#':
+			escape_if_in_list(&top_node);
 			temp_node = markcore_parse_header(p);
 			if (temp_node) {
 				add_child_node(top_node, temp_node);
@@ -389,6 +398,7 @@ static void markcore_parse_line(char *start, size_t len) {
 			}
 			break;
 		case '!': // check for image
+			escape_if_in_list(&top_node);
 			temp_node = markcore_parse_image(p);
 			if (temp_node) {
 				add_child_node(top_node, temp_node);
@@ -435,11 +445,14 @@ static void markcore_parse_line(char *start, size_t len) {
 					stack_push(node_stack, list_node);
 					top_node = list_node;
 				}	
-			} else if (top_node->type == UNORDERED_LIST_NODE || top_node->type == ORDERED_LIST_NODE) {
-				// skip multi line
-				(void)stack_pop(node_stack);
-				top_node = stack_peek(node_stack);
-			}
+			} else {
+				escape_if_in_list(&top_node);
+			} 
+			// else if (top_node->type == UNORDERED_LIST_NODE || top_node->type == ORDERED_LIST_NODE) {
+// 				// skip multi line
+// 				(void)stack_pop(node_stack);
+// 				top_node = stack_peek(node_stack);
+// 			}
 	}
 	
 	MCNode_t *line_node = create_node(LINE_NODE, NULL);
