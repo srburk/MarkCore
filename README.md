@@ -23,9 +23,10 @@ make
 
 ## TODO:
 
-[] Fix image gen
-[] Add finish code for parser to free synax tree
+[X] Fix image gen
+[X] Add finish code for parser to free synax tree
 [] Smart tree diff algorithm for renderer?
-[] Add state management for parser
+[X] Add state management for parser
 
 [] Auto numbered list
+[] Fix code blocks having HTML styling

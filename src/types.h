@@ -11,7 +11,9 @@ typedef enum {
 	IMAGE_NODE,
 	BOLD_NODE,
 	ITALIC_NODE, 
+	CODE_INLINE_NODE,
 	UNORDERED_LIST_NODE,
+	ORDERED_LIST_NODE,
 	CODE_BLOCK_NODE,
 	BOLD_ITALIC_NODE,
 	NODE_TYPE_COUNT
@@ -25,8 +27,12 @@ typedef struct MCNode {
 	int child_capacity;
 	
 	// type-specific data
-	int header_level;
+	union {
+		int header_level;
+	};
+	
 	char *data;
+	
 } MCNode_t;
 
 static char *type_labels[NODE_TYPE_COUNT] = {
@@ -39,7 +45,9 @@ static char *type_labels[NODE_TYPE_COUNT] = {
 	[ITALIC_NODE] = "Italic",
 	[BOLD_ITALIC_NODE] = "Bold AND Italic",
 	[CODE_BLOCK_NODE] = "Code Block",
+	[CODE_INLINE_NODE] = "Inline code",
 	[UNORDERED_LIST_NODE] = "Unordered list",
+	[ORDERED_LIST_NODE] = "Ordered list",
 	[TEXT_NODE] = "Text",
 };
 

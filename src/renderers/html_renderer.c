@@ -13,6 +13,10 @@ static void html_render_line_end(Renderer_t* r);
 static void html_render_paragraph_open(Renderer_t *r);
 static void html_render_paragraph_close(Renderer_t *r);
 
+static void html_render_code_block_open(Renderer_t *r);
+static void html_render_code_block_close(Renderer_t *r);
+static void html_render_code_inline(Renderer_t *r, const char *text);
+
 static void html_render_bold_open(Renderer_t *r);
 static void html_render_bold_close(Renderer_t *r);
 
@@ -21,6 +25,8 @@ static void html_render_italic_close(Renderer_t *r);
 
 static void html_render_unordered_list_open(Renderer_t *r);
 static void html_render_unordered_list_close(Renderer_t *r);
+static void html_render_ordered_list_open(Renderer_t *r);
+static void html_render_ordered_list_close(Renderer_t *r);
 
 static void html_render_list_item_open(Renderer_t *r);
 static void html_render_list_item_close(Renderer_t *r);
@@ -43,6 +49,11 @@ Renderer_t create_html_renderer(FILE *dest) {
 	
 	renderer.render_paragraph_open = html_render_paragraph_open;
 	renderer.render_paragraph_close = html_render_paragraph_close;
+	
+	renderer.render_code_block_open = html_render_code_block_open;
+	renderer.render_code_block_close = html_render_code_block_close;
+	
+	renderer.render_code_inline = html_render_code_inline;
 
 	renderer.render_bold_open = html_render_bold_open;
 	renderer.render_bold_close = html_render_bold_close;
@@ -52,6 +63,8 @@ Renderer_t create_html_renderer(FILE *dest) {
 	
 	renderer.render_unordered_list_open = html_render_unordered_list_open;
 	renderer.render_unordered_list_close = html_render_unordered_list_close;
+	renderer.render_ordered_list_open = html_render_ordered_list_open;
+	renderer.render_ordered_list_close = html_render_ordered_list_close;
 	
 	renderer.render_list_item_open = html_render_list_item_open;
 	renderer.render_list_item_close = html_render_list_item_close;
@@ -83,6 +96,18 @@ static void html_render_paragraph_close(Renderer_t *r) {
 	fprintf(r->outfile, "</p>");
 }
 
+static void html_render_code_block_open(Renderer_t *r) {
+	fprintf(r->outfile, "<pre><code>");
+}
+
+static void html_render_code_block_close(Renderer_t *r) {
+	fprintf(r->outfile, "</code></pre>");
+}
+
+static void html_render_code_inline(Renderer_t *r, const char *text) {
+	fprintf(r->outfile, "<code>%s</code>", text);
+}
+
 static void html_render_line_end(Renderer_t* r) {
 	fprintf(r->outfile, "\n");
 }
@@ -109,6 +134,14 @@ static void html_render_unordered_list_open(Renderer_t *r) {
 
 static void html_render_unordered_list_close(Renderer_t *r) {
 	fprintf(r->outfile, "</ul>");
+}
+
+static void html_render_ordered_list_open(Renderer_t *r) {
+	fprintf(r->outfile, "<ol>");
+}
+
+static void html_render_ordered_list_close(Renderer_t *r) {
+	fprintf(r->outfile, "</ol>");
 }
 
 static void html_render_list_item_open(Renderer_t *r) {

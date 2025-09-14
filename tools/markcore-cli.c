@@ -24,11 +24,15 @@ int main(int argc, char **argv) {
     buffer[size] = '\0';
     fclose(fp);
     
-    char *html = markcore_render(buffer, size);
-//     printf("%s\n", html);
+    fp = fopen("output.html", "w");
+    if (!fp) {
+    	fprintf(stderr, "Couldn't open output file\n");
+    	return 1;
+    }
+    
+	(void)markcore_render_to_file(buffer, size, fp);
     
     free(buffer);
-//     free(html);
     
     return 0;
 }

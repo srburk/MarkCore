@@ -4,6 +4,7 @@
 
 #include <string.h>
 #include <stdio.h>
+#include <ctype.h>
 
 #define LINE_BUFFER_SIZE 1024
 #define INITIAL_CHILD_CAPACITY 1
@@ -116,6 +117,23 @@ static char *seek_next_char(char *p, const char c) {
 	return NULL;
 }
 
+static size_t is_ordered_list_item(const char **p_ptr) {
+	
+	char *p = *p_ptr;
+	
+    if (*p == '\0' || !isdigit((unsigned char)*p)) return 0;
+    while (*p != '\0' && isdigit((unsigned char)*p)) p++;
+
+    if (*p == '\0' || (*p != '.' && *p != ')')) return 0;
+    p++; // skip . or )
+
+    if (*p == '\0' || *p != ' ') return 0;
+    
+    *p_ptr = p; // set read head after list entry point
+
+    return 1;
+}
+
 // add text node to parent (call this right before adding a bold child node for example)
 static void flush_text(char *start, char *end) {
 	if (start == end || start > end) return;
@@ -163,6 +181,28 @@ static MCNode_t *markcore_parse_link(char **p_ptr) {
 	
 	*p_ptr = close_link + 1; // set read head
 	return link_node;
+}
+
+static MCNode_t *markcore_parse_inline_code(char **p_ptr) {
+
+	char *p = *p_ptr;
+	char *start = p;
+	
+	p++;
+	
+	char *close_tick = seek_next_char(p, '`');
+	if (!close_tick) return NULL;
+
+	p = start + 1; // set read head to start of text labe
+	size_t text_len = close_tick - p;
+	char *text = malloc(text_len + 1);
+	strncpy(text, p, text_len);
+	text[text_len] = '\0';
+    
+	MCNode_t *inline_code_node = create_node(CODE_INLINE_NODE, text);
+	
+	*p_ptr = close_tick + 1; // set read head
+	return inline_code_node;
 }
 
 static MCNode_t *markcore_parse_italics_bold(char **p_ptr) {
@@ -241,6 +281,13 @@ static void markcore_parse_inline_range(char *start, char *end) {
  				add_child_node(top_node, new_node);
  			}
  			break;
+ 		case '`': // inline code
+ 			new_node = markcore_parse_inline_code(&p);
+ 			if (new_node) {
+				flush_text(last_text, og_p);
+				last_text = p;
+ 				add_child_node(top_node, new_node);
+ 			}
 		default:
 			break;
 		}
@@ -374,8 +421,16 @@ static void markcore_parse_line(char *start, size_t len) {
 			break;
 		default:
 		
-			// escape multi-line node types
-			if (top_node->type == UNORDERED_LIST_NODE) {
+			if (is_ordered_list_item(&p)) {
+				// ordered list
+				if (top_node->type != ORDERED_LIST_NODE) {
+					MCNode_t *list_node = create_node(ORDERED_LIST_NODE, NULL);
+					add_child_node(top_node, list_node);
+					stack_push(node_stack, list_node);
+					top_node = list_node;
+				}	
+			} else if (top_node->type == UNORDERED_LIST_NODE || top_node->type == ORDERED_LIST_NODE) {
+				// skip multi line
 				(void)stack_pop(node_stack);
 				top_node = stack_peek(node_stack);
 			}
@@ -450,6 +505,9 @@ void markcore_print_tree(MCNode_t *node, int depth) {
 			break;
 		case IMAGE_NODE:
 			printf("Image – %s\n", node->data);
+			break;
+		case CODE_INLINE_NODE:
+			printf("Inline code – %s\n", node->content);
 			break;
 		default:
 			printf("%s\n", type_labels[node->type]);

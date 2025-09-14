@@ -20,6 +20,11 @@ typedef struct Renderer {
 	void (*render_paragraph_open)(struct Renderer*);
 	void (*render_paragraph_close)(struct Renderer*);
 	
+	void (*render_code_block_open)(struct Renderer*);
+	void (*render_code_block_close)(struct Renderer*);
+	
+	void (*render_code_inline)(struct Renderer*, const char *text);
+	
 	void (*render_bold_open)(struct Renderer*);
 	void (*render_bold_close)(struct Renderer*);
 	
@@ -28,6 +33,8 @@ typedef struct Renderer {
 	
 	void (*render_unordered_list_open)(struct Renderer*);
 	void (*render_unordered_list_close)(struct Renderer*);
+	void (*render_ordered_list_open)(struct Renderer*);
+	void (*render_ordered_list_close)(struct Renderer*);
 	
 	void (*render_list_item_open)(struct Renderer*);
 	void (*render_list_item_close)(struct Renderer*);
