@@ -1,5 +1,6 @@
 
 #include "markcore.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -24,13 +25,13 @@ int main(int argc, char **argv) {
     buffer[size] = '\0';
     fclose(fp);
     
-    fp = fopen("output.html", "w");
-    if (!fp) {
-    	fprintf(stderr, "Couldn't open output file\n");
-    	return 1;
-    }
+//     fp = fopen("output.html", "w");
+//     if (!fp) {
+//     	fprintf(stderr, "Couldn't open output file\n");
+//     	return 1;
+//     }
     
-	(void)markcore_render_to_file(buffer, size, fp);
+	size_t bytes_written = markcore_render_to_file(buffer, size, stdout);
     
     free(buffer);
     

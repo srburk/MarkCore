@@ -29,6 +29,10 @@ Useful for watching for memory leaks
 Enable address sanitizer with Cmake flag `-DADDRESS_SANITIZER=ON`
 Enable debugging with flag `-DCMAKE_BUILD_TYPE=Debug`
 
+## Plugin System
+
+* Pre/Post tree traversal for spelling check, maybe markdown suggestions?
+
 ## TODO:
 
 [X] Fix image gen
