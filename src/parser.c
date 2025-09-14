@@ -117,7 +117,7 @@ static char *seek_next_char(char *p, const char c) {
 	return NULL;
 }
 
-static size_t is_ordered_list_item(const char **p_ptr) {
+static size_t is_ordered_list_item(char **p_ptr) {
 	
 	char *p = *p_ptr;
 	
@@ -145,6 +145,8 @@ static void flush_text(char *start, char *end) {
 	MCNode_t *top_node = stack_peek(node_stack);
 	MCNode_t *text_node = create_node(TEXT_NODE, text_buffer);
 	add_child_node(top_node, text_node);
+	
+	free(text_buffer); // (it's strduped in create_node)
 }
 
 // Inline Methods ==============================================
@@ -180,6 +182,9 @@ static MCNode_t *markcore_parse_link(char **p_ptr) {
 	link_node->data = url;
 	
 	*p_ptr = close_link + 1; // set read head
+	
+	free(text);
+	
 	return link_node;
 }
 
@@ -202,6 +207,9 @@ static MCNode_t *markcore_parse_inline_code(char **p_ptr) {
 	MCNode_t *inline_code_node = create_node(CODE_INLINE_NODE, text);
 	
 	*p_ptr = close_tick + 1; // set read head
+	
+	free(text);
+	
 	return inline_code_node;
 }
 
@@ -332,6 +340,8 @@ static MCNode_t *markcore_parse_image(char *p) {
 	MCNode_t *link_node = create_node(IMAGE_NODE, text);
 	link_node->data = url;
 	
+	free(text);
+	
 	return link_node;
 }
 
@@ -446,15 +456,19 @@ static void markcore_parse_line(char *start, size_t len) {
 void markcore_free_syntax_tree(MCNode_t *node) {
 	// 	DFS, free buffers and free nodes
 	if (!node) return;
+	
+	if (node->content) free(node->content);
+	if (node->data) free(node->data);
+	
 	for (int i = 0; i < node->child_count; i++) {
 		MCNode_t *child = node->children[i];
-    	if (child) {
-			markcore_free_syntax_tree(child);
-			if (child->content) free(child->content);
-			if (child->data) free(child->data);
-			free(child);
-    	}
+		markcore_free_syntax_tree(child);
 	}
+	
+	if (node->children) free(node->children);
+	
+	free(node);
+	
 }
 
 // DEBUG ===========================================
