@@ -9,6 +9,7 @@ add_library(markcore STATIC
 	src/renderer.c
 	src/buffer.c
 	src/stack.c
+	src/renderers/html_renderer.c
 )
 
 add_compile_options(-fsanitize=address)
