@@ -31,23 +31,6 @@ static size_t traverse_children(Renderer_t *r, MCNode_t *node) {
 
 // Handlers ===========================================
 
-// static void handle_line(Renderer_t *r, MCNode_t *node) {
-// 
-// 	MCNodeType_e *top_node_type = stack_peek(r->node_stack);
-// 
-// 	if (top_node_type && *top_node_type == UNORDERED_LIST_NODE) {
-// 		SAFE_RENDER_CALL(r, render_list_item_open, r);
-// 	}
-// 	
-// 	r->render_paragraph_open(r);
-// 	traverse_children(r, node);
-// 	r->render_paragraph_close(r);
-// 	
-// 	if (top_node_type && *top_node_type == UNORDERED_LIST_NODE) {
-// 		r->render_list_item_close(r);
-// 	}
-// }
-
 static size_t handle_list(Renderer_t *r, MCNode_t *node) {
 
 	size_t bytes_written = 0;
@@ -122,27 +105,28 @@ size_t render_syntax_tree(Renderer_t *r, MCNode_t *node) {
 			break;	
 		
 		case CODE_INLINE_NODE:
-			SAFE_RENDER_CALL(r, render_code_inline, node->content);
+			SAFE_RENDER_CALL(r, render_code_inline, node->content, node->content_len);
 			break;
 		
 		case IMAGE_NODE:
-			SAFE_RENDER_CALL(r, render_image, node->data, node->content);
+			// data is url, content is alt text
+			SAFE_RENDER_CALL(r, render_image, node->data, node->data_len, node->content, node->content_len);
 			SAFE_RENDER_CALL(r, render_line_end);
 			break;
 
 		case TEXT_NODE: 
 				
 			if (top_node_type && *top_node_type == CODE_BLOCK_NODE) {
-				SAFE_RENDER_CALL(r, render_code_block_line, node->content);
+				SAFE_RENDER_CALL(r, render_code_block_line, node->content, node->content_len);
 				SAFE_RENDER_CALL(r, render_line_end);
 			} else {
-				SAFE_RENDER_CALL(r, render_text, node->content);
+				SAFE_RENDER_CALL(r, render_text, node->content, node->content_len);
 			}
 		
 			break;
 			
 		case HEADER_NODE:
-			SAFE_RENDER_CALL(r, render_header, node->header_level, node->content);
+			SAFE_RENDER_CALL(r, render_header, node->header_level, node->content, node->content_len);
 			SAFE_RENDER_CALL(r, render_line_end);
 			break;
 		
@@ -169,7 +153,8 @@ size_t render_syntax_tree(Renderer_t *r, MCNode_t *node) {
 			SAFE_RENDER_CALL(r, render_bold_close); 
 			break;
 		case LINK_NODE:
-			SAFE_RENDER_CALL(r, render_link, node->data, node->content);
+			// data is url, content is text
+			SAFE_RENDER_CALL(r, render_link, node->data, node->data_len, node->content, node->content_len);
 			break;
 		default:
 			printf("Not implemented renderer for: %s", type_labels[node->type]);

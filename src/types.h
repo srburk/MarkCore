@@ -2,6 +2,8 @@
 #ifndef MARKCORE_TYPES_H
 #define MARKCORE_TYPES_H
 
+#include <stddef.h> // for size_t
+
 typedef enum {
 	ROOT_NODE,
 	LINE_NODE,
@@ -21,7 +23,11 @@ typedef enum {
 
 typedef struct MCNode {
 	MCNodeType_e type;
-	char *content;
+
+	// String View (pointer into original source, no copy)
+	const char *content;
+	size_t content_len;
+
 	struct MCNode **children;
 	int child_count;
 	int child_capacity;
@@ -31,11 +37,13 @@ typedef struct MCNode {
 		int header_level;
 	};
 	
-	char *data;
+	// String View for extra data (e.g. URL)
+	const char *data;
+	size_t data_len;
 	
 } MCNode_t;
 
-static char *type_labels[NODE_TYPE_COUNT] = {
+static const char *type_labels[NODE_TYPE_COUNT] = {
 	[ROOT_NODE] = "Root",
 	[HEADER_NODE] = "Header",
 	[LINK_NODE] = "Link",

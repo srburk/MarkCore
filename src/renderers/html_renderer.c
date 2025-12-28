@@ -5,10 +5,10 @@
 
 // Forward Declaration ======================================
 
-static size_t html_render_header(Renderer_t *r, int header_level, const char *text);
-static size_t html_render_text(Renderer_t *r,  const char *text);
-static size_t html_render_image(Renderer_t *r, const char *url, const char *alt);
-static size_t html_render_link(Renderer_t *r, const char *url, const char *text);
+static size_t html_render_header(Renderer_t *r, int header_level, const char *text, size_t len);
+static size_t html_render_text(Renderer_t *r,  const char *text, size_t len);
+static size_t html_render_image(Renderer_t *r, const char *url, size_t url_len, const char *alt, size_t alt_len);
+static size_t html_render_link(Renderer_t *r, const char *url, size_t url_len, const char *text, size_t text_len);
 
 static size_t html_render_line_end(Renderer_t* r);
 
@@ -17,8 +17,8 @@ static size_t html_render_paragraph_close(Renderer_t *r);
 
 static size_t html_render_code_block_open(Renderer_t *r);
 static size_t html_render_code_block_close(Renderer_t *r);
-static size_t html_render_code_block_line(Renderer_t *r, const char *text);
-static size_t html_render_code_inline(Renderer_t *r, const char *text);
+static size_t html_render_code_block_line(Renderer_t *r, const char *text, size_t len);
+static size_t html_render_code_inline(Renderer_t *r, const char *text, size_t len);
 
 static size_t html_render_bold_open(Renderer_t *r);
 static size_t html_render_bold_close(Renderer_t *r);
@@ -88,20 +88,20 @@ static size_t html_emit(FILE *outfile, const char *fmt, ...) {
 
 // Renderer Functions ==============================================
 
-static size_t html_render_header(Renderer_t *r, int header_level, const char *text) {
-	return html_emit(r->outfile, "<h%i>%s</h%i>", header_level, text, header_level);
+static size_t html_render_header(Renderer_t *r, int header_level, const char *text, size_t len) {
+	return html_emit(r->outfile, "<h%i>%.*s</h%i>", header_level, (int)len, text, header_level);
 }
 
-static size_t html_render_text(Renderer_t *r,  const char *text) {
-	return html_emit(r->outfile, "%s", text);
+static size_t html_render_text(Renderer_t *r,  const char *text, size_t len) {
+	return html_emit(r->outfile, "%.*s", (int)len, text);
 }
 
-static size_t html_render_image(Renderer_t *r, const char *url, const char *alt) {
-	return html_emit(r->outfile, "<img src=\"%s\" alt=\"%s\" />", url, alt);
+static size_t html_render_image(Renderer_t *r, const char *url, size_t url_len, const char *alt, size_t alt_len) {
+	return html_emit(r->outfile, "<img src=\"%.*s\" alt=\"%.*s\" />", (int)url_len, url, (int)alt_len, alt);
 }
 
-static size_t html_render_link(Renderer_t *r, const char *url, const char *text) {
-	return html_emit(r->outfile, "<a href=\"%s\">%s</a>", url, text);
+static size_t html_render_link(Renderer_t *r, const char *url, size_t url_len, const char *text, size_t text_len) {
+	return html_emit(r->outfile, "<a href=\"%.*s\">%.*s</a>", (int)url_len, url, (int)text_len, text);
 }
 
 static size_t html_render_paragraph_open(Renderer_t *r) {
@@ -120,9 +120,12 @@ static size_t html_render_code_block_close(Renderer_t *r) {
 	return html_emit(r->outfile, "</code></pre>");
 }
 
-static size_t html_render_code_block_line(Renderer_t *r, const char *text) {
+static size_t html_render_code_block_line(Renderer_t *r, const char *text, size_t len) {
     size_t written = 0;
-    for (const char *p = text; *p; p++) {
+    const char *p = text;
+    const char *end = text + len;
+
+    while (p < end) {
         switch (*p) {
             case '&':
                 fputs("&amp;", r->outfile);
@@ -149,13 +152,14 @@ static size_t html_render_code_block_line(Renderer_t *r, const char *text) {
                 written += 1;
                 break;
         }
+        p++;
     }
 
     return written;
 }
 
-static size_t html_render_code_inline(Renderer_t *r, const char *text) {
-	return html_emit(r->outfile, "<code>%s</code>", text);
+static size_t html_render_code_inline(Renderer_t *r, const char *text, size_t len) {
+	return html_emit(r->outfile, "<code>%.*s</code>", (int)len, text);
 }
 
 static size_t html_render_line_end(Renderer_t* r) {
