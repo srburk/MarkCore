@@ -21,6 +21,27 @@ cmake .. -DMARKCORE_BUILD_CLI=ON
 make
 ```
 
+## Performance Testing
+
+This repository includes tools to benchmark memory usage and performance.
+
+### Prerequisites: Valgrind
+To run the full test suite, you need `valgrind`.
+* **Linux**: [Installation Guide](https://valgrind.org/docs/manual/quick-start.html) (usually `sudo apt install valgrind`)
+* **macOS**: [Installation Guide](https://github.com/LouisBrunner/valgrind-macos) (install via Homebrew: `brew tap LouisBrunner/valgrind && brew install --HEAD LouisBrunner/valgrind/valgrind`)
+
+### Running Benchmarks
+1. Build the CLI tool (see above).
+2. Generate benchmark files:
+   ```bash
+   python3 tools/generate_benchmarks.py
+   ```
+3. Run the measurement script:
+   ```bash
+   ./tools/measure.sh
+   ```
+   This will run `markcore-cli` against various benchmarks and report time and memory statistics.
+
 ## Debugging Notes
 
 Useful for watching for memory leaks
@@ -44,4 +65,4 @@ Enable debugging with flag `-DCMAKE_BUILD_TYPE=Debug`
 
 [X] Auto numbered list
 [X] Fix code blocks having HTML styling
-[] Refactor to store string bounds in original buffer instead of copying every time
+[X] Refactor to store string bounds in original buffer instead of copying every time
