@@ -19,6 +19,8 @@ Returns dynamically allocated array with contents. Please free()
 // 								 char *write_buffer,
 // 								 size_t buffer_size);
 
+/* Render markdown[0, length) as HTML. The buffer is not copied into the
+ * tree; it must remain valid for the duration of the call. */
 size_t markcore_render_to_file(const char *markdown,
 							   size_t length,
 							   FILE *out_file);

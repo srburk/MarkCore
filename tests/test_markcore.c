@@ -94,6 +94,18 @@ int main(void) {
 	expect_contains("attr-escape", out, "&quot;");
 	free(out);
 
+	/* Spans into the original buffer must not require a trailing NUL. */
+	{
+		char raw[5] = {'#', ' ', 'H', 'i', '\n'};
+		char *buf = NULL;
+		size_t size = 0;
+		FILE *mem = open_memstream(&buf, &size);
+		markcore_render_to_file(raw, sizeof(raw), mem);
+		fclose(mem);
+		expect_contains("no-trailing-nul", buf, "<h1>Hi</h1>");
+		free(buf);
+	}
+
 	if (failures) {
 		fprintf(stderr, "%d test(s) failed\n", failures);
 		return 1;

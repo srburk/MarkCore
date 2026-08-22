@@ -1,4 +1,3 @@
-
 #include "parser.h"
 #include "stack.h"
 
@@ -10,36 +9,24 @@
 
 static Stack_t *node_stack = NULL;
 
-// Forward declaration ======================================================
+static void markcore_parse_line(const char *start, const char *end);
+static MCNode_t *markcore_parse_image(const char *p, const char *end);
+static void markcore_parse_inline_range(const char *start, const char *end);
+static MCNode_t *markcore_parse_link(const char **p_ptr, const char *end);
+static MCNode_t *markcore_parse_italics_bold(const char **p_ptr, const char *end);
+static MCNode_t *markcore_parse_inline_code(const char **p_ptr, const char *end);
+static void flush_text(const char *start, const char *end);
 
-static void markcore_parse_line(char *markdown, size_t len);
-
-static MCNode_t *markcore_parse_image(char *p);
-
-static void markcore_parse_inline_range(char *start, char *end);
-
-static MCNode_t *markcore_parse_link(char **p_ptr);
-static MCNode_t *markcore_parse_italics_bold(char **p_ptr);
-
-static void flush_text(char *start, char *end);
-
-// Tree functions
-
-static MCNode_t *create_node(MCNodeType_e type, const char *content) {
+static MCNode_t *create_node(MCNodeType_e type)
+{
 	MCNode_t *node = calloc(1, sizeof(MCNode_t));
 	if (!node) return NULL;
 	node->type = type;
-	if (content) {
-		node->content = strdup(content);
-		if (!node->content) {
-			free(node);
-			return NULL;
-		}
-	}
 	return node;
 }
 
-static void add_child_node(MCNode_t *parent, MCNode_t *child) {
+static void add_child_node(MCNode_t *parent, MCNode_t *child)
+{
 	if (!parent || !child) return;
 
 	if (!parent->children) {
@@ -52,26 +39,24 @@ static void add_child_node(MCNode_t *parent, MCNode_t *child) {
 	}
 
 	if (parent->child_count + 1 > parent->child_capacity) {
-		size_t new_capacity = parent->child_capacity * 2;
+		size_t new_capacity = (size_t)parent->child_capacity * 2;
 		MCNode_t **new_children = realloc(parent->children, sizeof(MCNode_t *) * new_capacity);
 		if (!new_children) {
 			fprintf(stderr, "Failed to realloc children\n");
 			return;
 		}
 		parent->children = new_children;
-		parent->child_capacity = new_capacity;
+		parent->child_capacity = (int)new_capacity;
 	}
 	parent->children[parent->child_count] = child;
 	parent->child_count++;
 }
 
-// Core Parser functions ========================================================
-
-MCNode_t *markcore_parse(const char *markdown, size_t len) {
-
+MCNode_t *markcore_parse(const char *markdown, size_t len)
+{
 	if (!markdown) return NULL;
 
-	MCNode_t *root = create_node(ROOT_NODE, NULL);
+	MCNode_t *root = create_node(ROOT_NODE);
 	if (!root) return NULL;
 
 	if (node_stack) {
@@ -93,19 +78,7 @@ MCNode_t *markcore_parse(const char *markdown, size_t len) {
 		while (line_end < end && *line_end != '\n') {
 			line_end++;
 		}
-		size_t line_len = (size_t)(line_end - p);
-
-		char *line = malloc(line_len + 1);
-		if (!line) {
-			fprintf(stderr, "Failed to allocate line buffer\n");
-			break;
-		}
-		memcpy(line, p, line_len);
-		line[line_len] = '\0';
-
-		markcore_parse_line(line, line_len);
-		free(line);
-
+		markcore_parse_line(p, line_end);
 		p = line_end;
 		if (p < end && *p == '\n') p++;
 	}
@@ -116,192 +89,151 @@ MCNode_t *markcore_parse(const char *markdown, size_t len) {
 	return root;
 }
 
-// Helper ======================================================
-
-static char *seek_next_char(char *p, const char c) {
-	while (*p != '\0') {
-		if (*p == c) {
-			return p;
-		}
+static const char *seek_next_char(const char *p, const char *end, char c)
+{
+	while (p < end) {
+		if (*p == c) return p;
 		p++;
 	}
 	return NULL;
 }
 
-static size_t is_ordered_list_item(char **p_ptr) {
-	
-	char *p = *p_ptr;
-	
-    if (*p == '\0' || !isdigit((unsigned char)*p)) return 0;
-    while (*p != '\0' && isdigit((unsigned char)*p)) p++;
-
-    if (*p == '\0' || (*p != '.' && *p != ')')) return 0;
-    p++; // skip . or )
-
-    if (*p == '\0' || *p != ' ') return 0;
-    p++; // skip the required space after . or )
-
-    *p_ptr = p; // set read head after list marker
-
-    return 1;
+static int has_prefix(const char *p, const char *end, const char *lit, size_t n)
+{
+	return (size_t)(end - p) >= n && memcmp(p, lit, n) == 0;
 }
 
-// add text node to parent (call this right before adding a bold child node for example)
-static void flush_text(char *start, char *end) {
+static int is_ordered_list_item(const char **p_ptr, const char *end)
+{
+	const char *p = *p_ptr;
+
+	if (p >= end || !isdigit((unsigned char)*p)) return 0;
+	while (p < end && isdigit((unsigned char)*p)) p++;
+
+	if (p >= end || (*p != '.' && *p != ')')) return 0;
+	p++;
+
+	if (p >= end || *p != ' ') return 0;
+	p++;
+
+	*p_ptr = p;
+	return 1;
+}
+
+static void flush_text(const char *start, const char *end)
+{
 	if (!start || !end || start >= end) return;
-	size_t len = (size_t)(end - start);
-	char *text_buffer = malloc(len + 1);
-	if (!text_buffer) return;
-	memcpy(text_buffer, start, len);
-	text_buffer[len] = '\0';
 
 	MCNode_t *top_node = stack_peek(node_stack);
-	MCNode_t *text_node = create_node(TEXT_NODE, text_buffer);
+	MCNode_t *text_node = create_node(TEXT_NODE);
+	if (!text_node) return;
+	text_node->content = mc_span_range(start, end);
 	add_child_node(top_node, text_node);
-
-	free(text_buffer); // (it's strduped in create_node)
 }
 
-// Inline Methods ==============================================
+static MCNode_t *markcore_parse_link(const char **p_ptr, const char *end)
+{
+	const char *p = *p_ptr;
+	const char *start = p;
 
-static MCNode_t *markcore_parse_link(char **p_ptr) {
-
-	char *p = *p_ptr;
-	char *start = p;
-	
-	char *close_bracket = seek_next_char(p, ']');
+	const char *close_bracket = seek_next_char(p, end, ']');
 	if (!close_bracket) return NULL;
-	
+
 	p = close_bracket + 1;
-	if (*p != '(') return NULL;
-	char *open_link = p;
-	
-	char *close_link = seek_next_char(p, ')');
+	if (p >= end || *p != '(') return NULL;
+	const char *open_link = p;
+
+	const char *close_link = seek_next_char(p, end, ')');
 	if (!close_link) return NULL;
 
-	p = start + 1; // set read head to start of text label
-	size_t text_len = (size_t)(close_bracket - p);
-	char *text = malloc(text_len + 1);
-	if (!text) return NULL;
-	memcpy(text, p, text_len);
-	text[text_len] = '\0';
+	MCNode_t *link_node = create_node(LINK_NODE);
+	if (!link_node) return NULL;
+	link_node->content = mc_span_range(start + 1, close_bracket);
+	link_node->data = mc_span_range(open_link + 1, close_link);
 
-	p = close_bracket + 2; // set read head to start of url
-	size_t url_len = (size_t)(close_link - open_link - 1);
-	char *url = malloc(url_len + 1);
-	if (!url) {
-		free(text);
-		return NULL;
-	}
-	memcpy(url, p, url_len);
-	url[url_len] = '\0';
-
-	MCNode_t *link_node = create_node(LINK_NODE, text);
-	free(text);
-	if (!link_node) {
-		free(url);
-		return NULL;
-	}
-	link_node->data = url;
-
-	*p_ptr = close_link + 1; // set read head
-
+	*p_ptr = close_link + 1;
 	return link_node;
 }
 
-static MCNode_t *markcore_parse_inline_code(char **p_ptr) {
+static MCNode_t *markcore_parse_inline_code(const char **p_ptr, const char *end)
+{
+	const char *p = *p_ptr;
+	const char *start = p;
 
-	char *p = *p_ptr;
-	char *start = p;
-	
 	p++;
-	
-	char *close_tick = seek_next_char(p, '`');
+	const char *close_tick = seek_next_char(p, end, '`');
 	if (!close_tick) return NULL;
 
-	p = start + 1; // set read head to start of text
-	size_t text_len = (size_t)(close_tick - p);
-	char *text = malloc(text_len + 1);
-	if (!text) return NULL;
-	memcpy(text, p, text_len);
-	text[text_len] = '\0';
+	MCNode_t *node = create_node(CODE_INLINE_NODE);
+	if (!node) return NULL;
+	node->content = mc_span_range(start + 1, close_tick);
 
-	MCNode_t *inline_code_node = create_node(CODE_INLINE_NODE, text);
-	free(text);
-	if (!inline_code_node) return NULL;
-
-	*p_ptr = close_tick + 1; // set read head
-
-	return inline_code_node;
+	*p_ptr = close_tick + 1;
+	return node;
 }
 
-static int count_stars(const char *p) {
+static int count_stars(const char *p, const char *end)
+{
 	int n = 0;
-	while (p[n] == '*' && n < 3) n++;
+	while (p + n < end && p[n] == '*' && n < 3) n++;
 	return n;
 }
 
-static MCNode_t *markcore_parse_italics_bold(char **p_ptr) {
+static MCNode_t *markcore_parse_italics_bold(const char **p_ptr, const char *end)
+{
+	const char *p = *p_ptr;
+	const char *start = p;
 
-	char *p = *p_ptr;
-	char *start = p;
-
-	int delimiter_count = count_stars(p);
+	int delimiter_count = count_stars(p, end);
 	if (delimiter_count == 0) return NULL;
 	p += delimiter_count;
 
-	char *next_delimiter = seek_next_char(p, '*');
+	const char *next_delimiter = seek_next_char(p, end, '*');
 	if (!next_delimiter) return NULL;
 
 	for (;;) {
-		int close_count = count_stars(next_delimiter);
-		if (close_count >= delimiter_count) {
-			break;
-		}
-		next_delimiter = seek_next_char(next_delimiter + close_count, '*');
+		int close_count = count_stars(next_delimiter, end);
+		if (close_count >= delimiter_count) break;
+		next_delimiter = seek_next_char(next_delimiter + close_count, end, '*');
 		if (!next_delimiter) return NULL;
 	}
 
-	MCNode_t *italics_bold_node = NULL;
+	MCNode_t *node = NULL;
 	switch (delimiter_count) {
-		case 1: italics_bold_node = create_node(ITALIC_NODE, NULL); break;
-		case 2: italics_bold_node = create_node(BOLD_NODE, NULL); break;
-		case 3: italics_bold_node = create_node(BOLD_ITALIC_NODE, NULL); break;
+		case 1: node = create_node(ITALIC_NODE); break;
+		case 2: node = create_node(BOLD_NODE); break;
+		case 3: node = create_node(BOLD_ITALIC_NODE); break;
 	}
-	if (!italics_bold_node) return NULL;
+	if (!node) return NULL;
 
-	p = start + delimiter_count;
-
-	stack_push(node_stack, italics_bold_node);
-	markcore_parse_inline_range(p, next_delimiter);
+	stack_push(node_stack, node);
+	markcore_parse_inline_range(start + delimiter_count, next_delimiter);
 	(void)stack_pop(node_stack);
 
 	*p_ptr = next_delimiter + delimiter_count;
-
-	return italics_bold_node;
+	return node;
 }
 
-// recursive tree builder for inline parsing, cature and handle bold, italics, links, etc.
-static void markcore_parse_inline_range(char *start, char *end) {	
-	
-	char *p = start;
+static void markcore_parse_inline_range(const char *start, const char *end)
+{
+	const char *p = start;
 
 	MCNode_t *top_node = stack_peek(node_stack);
 	if (!top_node) return;
 
-	char *last_text = start;
+	const char *last_text = start;
 	while (p < end) {
-		char *og_p = p;
+		const char *og_p = p;
 		MCNode_t *new_node = NULL;
 		switch (*p) {
 		case '[':
-			new_node = markcore_parse_link(&p);
+			new_node = markcore_parse_link(&p, end);
 			break;
 		case '*':
-			new_node = markcore_parse_italics_bold(&p);
+			new_node = markcore_parse_italics_bold(&p, end);
 			break;
 		case '`':
-			new_node = markcore_parse_inline_code(&p);
+			new_node = markcore_parse_inline_code(&p, end);
 			break;
 		default:
 			break;
@@ -310,84 +242,58 @@ static void markcore_parse_inline_range(char *start, char *end) {
 			flush_text(last_text, og_p);
 			last_text = p;
 			add_child_node(top_node, new_node);
-			continue; /* helpers already advanced p past the construct */
+			continue;
 		}
 		p++;
 	}
 	if (last_text < end) {
-		flush_text(last_text, end); // flush remaining text
+		flush_text(last_text, end);
 	}
 }
 
-// Full Lines ==========================================================
+static MCNode_t *markcore_parse_image(const char *p, const char *end)
+{
+	const char *start = p;
 
-static MCNode_t *markcore_parse_image(char *p) {
+	if (p + 1 >= end || p[1] != '[') return NULL;
 
-	char *start = p;
-	
-	p++;
-	if (*p != '[') return NULL;
-	
-	char *close_bracket = seek_next_char(p, ']');
+	const char *close_bracket = seek_next_char(p + 1, end, ']');
 	if (!close_bracket) return NULL;
-	
-	p = close_bracket + 1;
-	if (*p != '(') return NULL;
-	char *open_link = p;
-	
-	char *close_link = seek_next_char(p, ')');
+
+	const char *open_link = close_bracket + 1;
+	if (open_link >= end || *open_link != '(') return NULL;
+
+	const char *close_link = seek_next_char(open_link, end, ')');
 	if (!close_link) return NULL;
 
-	p = start + 2; // set read head to start of text label
-	size_t text_len = (size_t)(close_bracket - p);
-	char *text = malloc(text_len + 1);
-	if (!text) return NULL;
-	memcpy(text, p, text_len);
-	text[text_len] = '\0';
-
-	p = close_bracket + 2; // set read head to start of url
-	size_t url_len = (size_t)(close_link - open_link - 1);
-	char *url = malloc(url_len + 1);
-	if (!url) {
-		free(text);
-		return NULL;
-	}
-	memcpy(url, p, url_len);
-	url[url_len] = '\0';
-
-	MCNode_t *image_node = create_node(IMAGE_NODE, text);
-	free(text);
-	if (!image_node) {
-		free(url);
-		return NULL;
-	}
-	image_node->data = url;
-
-	return image_node;
+	MCNode_t *node = create_node(IMAGE_NODE);
+	if (!node) return NULL;
+	node->content = mc_span_range(start + 2, close_bracket);
+	node->data = mc_span_range(open_link + 1, close_link);
+	return node;
 }
 
-static MCNode_t *markcore_parse_header(char *p) {
+static MCNode_t *markcore_parse_header(const char *p, const char *end)
+{
 	int header_count = 0;
-	while (*p != '\0' && *p == '#') { header_count++; p++; }
+	while (p < end && *p == '#') {
+		header_count++;
+		p++;
+	}
 
-	// CommonMark ATX headings are 1–6 hashes
 	if (header_count < 1 || header_count > 6) return NULL;
 
-	if (*p == ' ') p++; // drop the conventional space after hashes
+	if (p < end && *p == ' ') p++;
 
-	MCNode_t *header_node = create_node(HEADER_NODE, NULL);
+	MCNode_t *header_node = create_node(HEADER_NODE);
 	if (!header_node) return NULL;
-
-	header_node->content = strdup(p);
-	if (!header_node->content) {
-		free(header_node);
-		return NULL;
-	}
+	header_node->content = mc_span_range(p, end);
 	header_node->header_level = header_count;
 	return header_node;
 }
 
-static void escape_if_in_list(MCNode_t **top_node) {
+static void escape_if_in_list(MCNode_t **top_node)
+{
 	if (!top_node || !*top_node) return;
 	if ((*top_node)->type == UNORDERED_LIST_NODE || (*top_node)->type == ORDERED_LIST_NODE) {
 		(void)stack_pop(node_stack);
@@ -395,23 +301,25 @@ static void escape_if_in_list(MCNode_t **top_node) {
 	}
 }
 
-static void ensure_list_context(MCNode_t **top_node, MCNodeType_e list_type) {
+static void ensure_list_context(MCNode_t **top_node, MCNodeType_e list_type)
+{
 	if (!top_node || !*top_node) return;
 	if ((*top_node)->type == list_type) return;
 
 	escape_if_in_list(top_node);
 	if (!*top_node) return;
 
-	MCNode_t *list_node = create_node(list_type, NULL);
+	MCNode_t *list_node = create_node(list_type);
 	if (!list_node) return;
 	add_child_node(*top_node, list_node);
 	stack_push(node_stack, list_node);
 	*top_node = list_node;
 }
 
-static void markcore_parse_line(char *start, size_t len) {
-	char *p = start;
-	while (*p == ' ' || *p == '\t') p++; // trim leading whitespace
+static void markcore_parse_line(const char *start, const char *end)
+{
+	const char *p = start;
+	while (p < end && (*p == ' ' || *p == '\t')) p++;
 
 	MCNode_t *top_node = stack_peek(node_stack);
 	if (!top_node) {
@@ -419,26 +327,25 @@ static void markcore_parse_line(char *start, size_t len) {
 		return;
 	}
 
-	if (*p == '\n' || *p == '\0') {
-		// Preserve blank lines inside fenced code; skip them elsewhere
+	if (p >= end) {
 		if (top_node->type == CODE_BLOCK_NODE) {
-			MCNode_t *text_node = create_node(TEXT_NODE, "");
+			MCNode_t *text_node = create_node(TEXT_NODE);
 			add_child_node(top_node, text_node);
 		}
 		return;
 	}
 
-	MCNode_t *temp_node;
-
-	if (top_node->type == CODE_BLOCK_NODE && strncmp(p, "```", 3) != 0) {
-		flush_text(start, start + len);
+	if (top_node->type == CODE_BLOCK_NODE && !has_prefix(p, end, "```", 3)) {
+		flush_text(start, end);
 		return;
 	}
+
+	MCNode_t *temp_node;
 
 	switch (*p) {
 		case '#':
 			escape_if_in_list(&top_node);
-			temp_node = markcore_parse_header(p);
+			temp_node = markcore_parse_header(p, end);
 			if (temp_node) {
 				add_child_node(top_node, temp_node);
 				return;
@@ -446,23 +353,23 @@ static void markcore_parse_line(char *start, size_t len) {
 			break;
 		case '!':
 			escape_if_in_list(&top_node);
-			temp_node = markcore_parse_image(p);
+			temp_node = markcore_parse_image(p, end);
 			if (temp_node) {
 				add_child_node(top_node, temp_node);
 				return;
 			}
 			break;
 		case '*':
-			if (*(p + 1) == ' ') {
+			if (p + 1 < end && p[1] == ' ') {
 				ensure_list_context(&top_node, UNORDERED_LIST_NODE);
-				p += 2; // skip "* "
+				p += 2;
 			}
 			break;
 		case '`':
-			if (strncmp(p, "```", 3) == 0) {
+			if (has_prefix(p, end, "```", 3)) {
 				if (top_node->type != CODE_BLOCK_NODE) {
 					escape_if_in_list(&top_node);
-					MCNode_t *code_block_node = create_node(CODE_BLOCK_NODE, NULL);
+					MCNode_t *code_block_node = create_node(CODE_BLOCK_NODE);
 					add_child_node(top_node, code_block_node);
 					stack_push(node_stack, code_block_node);
 				} else {
@@ -472,74 +379,74 @@ static void markcore_parse_line(char *start, size_t len) {
 			}
 			break;
 		default:
-			if (is_ordered_list_item(&p)) {
+			if (is_ordered_list_item(&p, end)) {
 				ensure_list_context(&top_node, ORDERED_LIST_NODE);
 			} else {
 				escape_if_in_list(&top_node);
 			}
 	}
 
-	MCNode_t *line_node = create_node(LINE_NODE, NULL);
+	MCNode_t *line_node = create_node(LINE_NODE);
 	if (!line_node) return;
 	stack_push(node_stack, line_node);
 	add_child_node(top_node, line_node);
-	markcore_parse_inline_range(p, start + len);
+	markcore_parse_inline_range(p, end);
 	(void)stack_pop(node_stack);
 }
 
-void markcore_free_syntax_tree(MCNode_t *node) {
-	// 	DFS, free buffers and free nodes
+void markcore_free_syntax_tree(MCNode_t *node)
+{
 	if (!node) return;
-	
-	if (node->content) free(node->content);
-	if (node->data) free(node->data);
-	
-	for (int i = 0; i < node->child_count; i++) {
-		MCNode_t *child = node->children[i];
-		markcore_free_syntax_tree(child);
-	}
-	
-	if (node->children) free(node->children);
-	
-	free(node);
 
+	for (int i = 0; i < node->child_count; i++) {
+		markcore_free_syntax_tree(node->children[i]);
+	}
+
+	if (node->children) free(node->children);
+	free(node);
 }
 
-void markcore_print_tree(MCNode_t *node, int depth) {
+void markcore_print_tree(MCNode_t *node, int depth)
+{
 	if (!node) return;
-	// DFS
+
 	int i;
 	for (i = 0; i < depth; i++) {
 		printf("\t");
 	}
-	
+
 	if (depth > 0) {
 		printf("└── ");
 	}
-	
+
+	int clen = node->content.len > 2147483647 ? 2147483647 : (int)node->content.len;
+	int dlen = node->data.len > 2147483647 ? 2147483647 : (int)node->data.len;
+	const char *cptr = node->content.ptr ? node->content.ptr : "";
+	const char *dptr = node->data.ptr ? node->data.ptr : "";
+
 	switch (node->type) {
 		case LINK_NODE:
-			printf("Link – %s (%s)\n", node->content, node->data);
+			printf("Link – %.*s (%.*s)\n", clen, cptr, dlen, dptr);
 			break;
 		case HEADER_NODE:
 			printf("Header %i\n", node->header_level);
 			break;
 		case TEXT_NODE:
-			printf("Text – %s\n", node->content);
+			printf("Text – %.*s\n", clen, cptr);
 			break;
 		case IMAGE_NODE:
-			printf("Image – %s\n", node->data);
+			printf("Image – %.*s\n", dlen, dptr);
 			break;
 		case CODE_INLINE_NODE:
-			printf("Inline code – %s\n", node->content);
+			printf("Inline code – %.*s\n", clen, cptr);
 			break;
 		default:
 			printf("%s\n", type_labels[node->type]);
 	}
-    
-    for (i = 0; i < node->child_count; i++) {
-    	if (node->children[i]) {
+
+	for (i = 0; i < node->child_count; i++) {
+		if (node->children[i]) {
 			markcore_print_tree(node->children[i], depth + 1);
-    	}
+		}
 	}
 }
