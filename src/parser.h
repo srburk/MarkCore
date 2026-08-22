@@ -9,6 +9,8 @@
  *
  * Node content/data are spans into `markdown`; that buffer must remain
  * valid until markcore_free_syntax_tree() is called on the returned tree.
+ * The tree is allocated from a bump arena owned by the root; free the root
+ * only (do not free descendant nodes individually).
  */
 MCNode_t *markcore_parse(const char *markdown, size_t len);
 void markcore_free_syntax_tree(MCNode_t *root);

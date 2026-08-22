@@ -1,5 +1,6 @@
 #include "parser.h"
 #include "stack.h"
+#include "arena.h"
 
 #include <string.h>
 #include <stdio.h>
@@ -8,6 +9,7 @@
 #define INITIAL_CHILD_CAPACITY 4
 
 static Stack_t *node_stack = NULL;
+static MCArena_t *node_arena = NULL;
 
 static void markcore_parse_line(const char *start, const char *end);
 static MCNode_t *markcore_parse_image(const char *p, const char *end);
@@ -19,7 +21,7 @@ static void flush_text(const char *start, const char *end);
 
 static MCNode_t *create_node(MCNodeType_e type)
 {
-	MCNode_t *node = calloc(1, sizeof(MCNode_t));
+	MCNode_t *node = mc_arena_calloc(node_arena, sizeof(MCNode_t));
 	if (!node) return NULL;
 	node->type = type;
 	return node;
@@ -30,7 +32,7 @@ static void add_child_node(MCNode_t *parent, MCNode_t *child)
 	if (!parent || !child) return;
 
 	if (!parent->children) {
-		parent->children = malloc(sizeof(MCNode_t *) * INITIAL_CHILD_CAPACITY);
+		parent->children = mc_arena_alloc(node_arena, sizeof(MCNode_t *) * INITIAL_CHILD_CAPACITY);
 		if (!parent->children) {
 			fprintf(stderr, "Failed to allocate children\n");
 			return;
@@ -40,11 +42,12 @@ static void add_child_node(MCNode_t *parent, MCNode_t *child)
 
 	if (parent->child_count + 1 > parent->child_capacity) {
 		size_t new_capacity = (size_t)parent->child_capacity * 2;
-		MCNode_t **new_children = realloc(parent->children, sizeof(MCNode_t *) * new_capacity);
+		MCNode_t **new_children = mc_arena_alloc(node_arena, sizeof(MCNode_t *) * new_capacity);
 		if (!new_children) {
-			fprintf(stderr, "Failed to realloc children\n");
+			fprintf(stderr, "Failed to allocate children\n");
 			return;
 		}
+		memcpy(new_children, parent->children, sizeof(MCNode_t *) * (size_t)parent->child_count);
 		parent->children = new_children;
 		parent->child_capacity = (int)new_capacity;
 	}
@@ -56,13 +59,26 @@ MCNode_t *markcore_parse(const char *markdown, size_t len)
 {
 	if (!markdown) return NULL;
 
-	MCNode_t *root = create_node(ROOT_NODE);
-	if (!root) return NULL;
-
 	if (node_stack) {
 		stack_free(node_stack);
 		node_stack = NULL;
 	}
+	if (node_arena) {
+		mc_arena_destroy(node_arena);
+		node_arena = NULL;
+	}
+
+	node_arena = mc_arena_create();
+	if (!node_arena) return NULL;
+
+	MCNode_t *root = create_node(ROOT_NODE);
+	if (!root) {
+		mc_arena_destroy(node_arena);
+		node_arena = NULL;
+		return NULL;
+	}
+	root->arena = node_arena;
+
 	node_stack = stack_create(4);
 	if (!node_stack) {
 		markcore_free_syntax_tree(root);
@@ -85,6 +101,7 @@ MCNode_t *markcore_parse(const char *markdown, size_t len)
 
 	stack_free(node_stack);
 	node_stack = NULL;
+	node_arena = NULL;
 
 	return root;
 }
@@ -396,14 +413,12 @@ static void markcore_parse_line(const char *start, const char *end)
 
 void markcore_free_syntax_tree(MCNode_t *node)
 {
-	if (!node) return;
+	if (!node || node->type != ROOT_NODE) return;
 
-	for (int i = 0; i < node->child_count; i++) {
-		markcore_free_syntax_tree(node->children[i]);
-	}
-
-	if (node->children) free(node->children);
-	free(node);
+	MCArena_t *arena = node->arena;
+	node->arena = NULL;
+	if (node_arena == arena) node_arena = NULL;
+	mc_arena_destroy(arena);
 }
 
 void markcore_print_tree(MCNode_t *node, int depth)

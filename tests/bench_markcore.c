@@ -253,20 +253,20 @@ typedef struct {
 	const char *name;
 	GenFn gen;
 	uint32_t seed;
-	/* CI ceilings filled from the span implementation + headroom. */
+	/* CI ceilings: chunk/stack mallocs after the AST arena. */
 	uint64_t max_allocs_per_iter;
 	double max_ms_total;
 } Class;
 
 /*
- * Allocation ceilings are set after the span port: they are well below the
- * copying parser (which strdup'd every text/link/header) but above the
- * remaining node/stack allocations. Time ceilings are smoke-test only.
+ * Allocation ceilings after the AST arena: a handful of chunk/stack
+ * mallocs per parse, not per-node. Keep these well below the span-only
+ * baseline (67k / 257k / 49k) so a regression to calloc-per-node fails.
  */
 static Class k_classes[] = {
-	{ "prose",  gen_prose,  0xC0FFEE01u,  90000, 3000.0 },
-	{ "inline", gen_inline, 0xC0FFEE02u, 350000, 3000.0 },
-	{ "blocks", gen_blocks, 0xC0FFEE03u,  70000, 3000.0 },
+	{ "prose",  gen_prose,  0xC0FFEE01u,  200, 3000.0 },
+	{ "inline", gen_inline, 0xC0FFEE02u,  200, 3000.0 },
+	{ "blocks", gen_blocks, 0xC0FFEE03u,  200, 3000.0 },
 };
 
 static double elapsed_ms(struct timespec a, struct timespec b)

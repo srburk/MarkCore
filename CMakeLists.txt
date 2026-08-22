@@ -9,6 +9,7 @@ add_library(markcore STATIC
 	src/parser.c
 	src/renderer.c
 	src/stack.c
+	src/arena.c
 	src/renderers/html_renderer.c
 )
 

@@ -3,6 +3,8 @@
 
 #include <stddef.h>
 
+typedef struct MCArena MCArena_t;
+
 typedef enum {
 	ROOT_NODE,
 	LINE_NODE,
@@ -33,10 +35,11 @@ typedef struct MCNode {
 	int child_count;
 	int child_capacity;
 
-	/* type-specific: heading level, or link/image URL span */
+	/* type-specific: heading level, link/image URL, or root arena */
 	union {
 		int header_level;
 		MCSpan_t data;
+		MCArena_t *arena;
 	};
 } MCNode_t;
 
