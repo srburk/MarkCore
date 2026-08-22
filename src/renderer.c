@@ -66,8 +66,7 @@ static size_t handle_list(Renderer_t *r, MCNode_t *node) {
 		return 0;
 	}
 		
-	MCNodeType_e list_node = node->type;
-	stack_push(r->node_stack, &list_node);
+	stack_push(r->node_stack, &node->type);
 	bytes_written += traverse_children(r, node);
 	(void)stack_pop(r->node_stack);
 	
@@ -92,30 +91,34 @@ size_t render_syntax_tree(Renderer_t *r, MCNode_t *node) {
 	MCNodeType_e *top_node_type = stack_peek(r->node_stack);
 	
 	switch (node->type) {
-		case LINE_NODE:
-			if (top_node_type && (*top_node_type == UNORDERED_LIST_NODE || *top_node_type == ORDERED_LIST_NODE)) {
+		case LINE_NODE: {
+			int in_list = top_node_type &&
+				(*top_node_type == UNORDERED_LIST_NODE || *top_node_type == ORDERED_LIST_NODE);
+
+			if (in_list) {
 				SAFE_RENDER_CALL(r, render_list_item_open);
+			} else {
+				SAFE_RENDER_CALL(r, render_paragraph_open);
 			}
-			
-			SAFE_RENDER_CALL(r, render_paragraph_open);
+
 			bytes_written += traverse_children(r, node);
-			SAFE_RENDER_CALL(r, render_paragraph_close);
-			
-			if (top_node_type && (*top_node_type == UNORDERED_LIST_NODE || *top_node_type == ORDERED_LIST_NODE)) {
+
+			if (in_list) {
 				SAFE_RENDER_CALL(r, render_list_item_close);
+			} else {
+				SAFE_RENDER_CALL(r, render_paragraph_close);
 			}
-			
+
 			SAFE_RENDER_CALL(r, render_line_end);
-			
 			break;
+		}
 		case ROOT_NODE:
 			bytes_written += traverse_children(r, node);
 			break;
 		
 		case CODE_BLOCK_NODE:
-			SAFE_RENDER_CALL(r, render_code_block_open); 
-			MCNodeType_e code_block_node = CODE_BLOCK_NODE;
-			stack_push(r->node_stack, &code_block_node);
+			SAFE_RENDER_CALL(r, render_code_block_open);
+			stack_push(r->node_stack, &node->type);
 			bytes_written += traverse_children(r, node);
 			(void)stack_pop(r->node_stack);
 			SAFE_RENDER_CALL(r, render_code_block_close); 
@@ -172,7 +175,11 @@ size_t render_syntax_tree(Renderer_t *r, MCNode_t *node) {
 			SAFE_RENDER_CALL(r, render_link, node->data, node->content);
 			break;
 		default:
-			printf("Not implemented renderer for: %s", type_labels[node->type]);
+			if (node->type >= 0 && node->type < NODE_TYPE_COUNT) {
+				fprintf(stderr, "Not implemented renderer for: %s\n", type_labels[node->type]);
+			} else {
+				fprintf(stderr, "Not implemented renderer for unknown node type %d\n", node->type);
+			}
 	}
 	
 	return bytes_written;

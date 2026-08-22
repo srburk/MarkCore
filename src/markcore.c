@@ -14,11 +14,12 @@ size_t markcore_render_to_file(const char *markdown, size_t length, FILE *out_fi
 	if (!markdown || !out_file) return 0;
 	
 	MCNode_t *node = markcore_parse(markdown, length);
-// 	markcore_print_tree(node, 0);
-    
+	if (!node) return 0;
+
 	Renderer_t *html_renderer = create_html_renderer(out_file);
 	if (!html_renderer) {
 		fprintf(stderr, "Failed to make HTML renderer\n");
+		markcore_free_syntax_tree(node);
 		return 0;
 	}
 	

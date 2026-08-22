@@ -2,6 +2,8 @@
 #include "html_renderer.h"
 
 #include <stdarg.h>
+#include <stdlib.h>
+#include <string.h>
 
 // Forward Declaration ======================================
 
@@ -43,6 +45,10 @@ Renderer_t *create_html_renderer(FILE *dest) {
 	
 	r->outfile = dest;
 	r->node_stack = stack_create(4);
+	if (!r->node_stack) {
+		free(r);
+		return NULL;
+	}
 	
 	r->render_header = html_render_header;
 	r->render_text = html_render_text;
@@ -86,22 +92,58 @@ static size_t html_emit(FILE *outfile, const char *fmt, ...) {
     return (written < 0) ? 0 : (size_t)written;
 }
 
+static size_t html_emit_escaped(FILE *outfile, const char *text, int is_attr) {
+	if (!text) return 0;
+	size_t written = 0;
+	for (const char *p = text; *p; p++) {
+		const char *rep = NULL;
+		switch (*p) {
+			case '&':  rep = "&amp;"; break;
+			case '<':  rep = "&lt;"; break;
+			case '>':  rep = "&gt;"; break;
+			case '"':  if (is_attr) { rep = "&quot;"; break; } goto emit_raw;
+			case '\'': if (is_attr) { rep = "&#39;"; break; } goto emit_raw;
+			default:
+			emit_raw:
+				if (fputc(*p, outfile) != EOF) written += 1;
+				continue;
+		}
+		if (fputs(rep, outfile) != EOF) written += strlen(rep);
+	}
+	return written;
+}
+
 // Renderer Functions ==============================================
 
 static size_t html_render_header(Renderer_t *r, int header_level, const char *text) {
-	return html_emit(r->outfile, "<h%i>%s</h%i>", header_level, text, header_level);
+	if (header_level < 1) header_level = 1;
+	if (header_level > 6) header_level = 6;
+	size_t written = html_emit(r->outfile, "<h%i>", header_level);
+	written += html_emit_escaped(r->outfile, text, 0);
+	written += html_emit(r->outfile, "</h%i>", header_level);
+	return written;
 }
 
 static size_t html_render_text(Renderer_t *r,  const char *text) {
-	return html_emit(r->outfile, "%s", text);
+	return html_emit_escaped(r->outfile, text, 0);
 }
 
 static size_t html_render_image(Renderer_t *r, const char *url, const char *alt) {
-	return html_emit(r->outfile, "<img src=\"%s\" alt=\"%s\" />", url, alt);
+	size_t written = html_emit(r->outfile, "<img src=\"");
+	written += html_emit_escaped(r->outfile, url, 1);
+	written += html_emit(r->outfile, "\" alt=\"");
+	written += html_emit_escaped(r->outfile, alt, 1);
+	written += html_emit(r->outfile, "\" />");
+	return written;
 }
 
 static size_t html_render_link(Renderer_t *r, const char *url, const char *text) {
-	return html_emit(r->outfile, "<a href=\"%s\">%s</a>", url, text);
+	size_t written = html_emit(r->outfile, "<a href=\"");
+	written += html_emit_escaped(r->outfile, url, 1);
+	written += html_emit(r->outfile, "\">");
+	written += html_emit_escaped(r->outfile, text, 0);
+	written += html_emit(r->outfile, "</a>");
+	return written;
 }
 
 static size_t html_render_paragraph_open(Renderer_t *r) {
@@ -121,41 +163,14 @@ static size_t html_render_code_block_close(Renderer_t *r) {
 }
 
 static size_t html_render_code_block_line(Renderer_t *r, const char *text) {
-    size_t written = 0;
-    for (const char *p = text; *p; p++) {
-        switch (*p) {
-            case '&':
-                fputs("&amp;", r->outfile);
-                written += 5;
-                break;
-            case '<':
-                fputs("&lt;", r->outfile);
-                written += 4;
-                break;
-            case '>':
-                fputs("&gt;", r->outfile);
-                written += 4;
-                break;
-            case '"':
-                fputs("&quot;", r->outfile);
-                written += 6;
-                break;
-            case '\'':
-                fputs("&#39;", r->outfile);
-                written += 5;
-                break;
-            default:
-                fputc(*p, r->outfile);
-                written += 1;
-                break;
-        }
-    }
-
-    return written;
+	return html_emit_escaped(r->outfile, text, 0);
 }
 
 static size_t html_render_code_inline(Renderer_t *r, const char *text) {
-	return html_emit(r->outfile, "<code>%s</code>", text);
+	size_t written = html_emit(r->outfile, "<code>");
+	written += html_emit_escaped(r->outfile, text, 0);
+	written += html_emit(r->outfile, "</code>");
+	return written;
 }
 
 static size_t html_render_line_end(Renderer_t* r) {
