@@ -1,7 +1,8 @@
 cmake_minimum_required(VERSION 3.15)
-project(markcore)
+project(markcore LANGUAGES C)
 
 option(MARKCORE_BUILD_CLI "Build the markcore-cli tool" OFF)
+option(MARKCORE_BUILD_TESTS "Build markcore regression tests" OFF)
 
 add_library(markcore STATIC
 	src/markcore.c
@@ -11,14 +12,21 @@ add_library(markcore STATIC
 	src/renderers/html_renderer.c
 )
 
-if (ADDRESS_SANITIZER)
-	add_compile_options(-fsanitize=address)
-	add_link_options(-fsanitize=address)
-endif()
-
 target_include_directories(markcore PUBLIC include)
 
+if (ADDRESS_SANITIZER)
+	target_compile_options(markcore PUBLIC -fsanitize=address -fno-omit-frame-pointer)
+	target_link_options(markcore PUBLIC -fsanitize=address)
+endif()
+
 if(MARKCORE_BUILD_CLI)
-    add_executable(markcore-cli tools/markcore-cli.c)
-    target_link_libraries(markcore-cli PRIVATE markcore)
+	add_executable(markcore-cli tools/markcore-cli.c)
+	target_link_libraries(markcore-cli PRIVATE markcore)
+endif()
+
+if(MARKCORE_BUILD_TESTS)
+	enable_testing()
+	add_executable(markcore-tests tests/test_markcore.c)
+	target_link_libraries(markcore-tests PRIVATE markcore)
+	add_test(NAME markcore-tests COMMAND markcore-tests)
 endif()

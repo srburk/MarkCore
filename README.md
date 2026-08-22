@@ -21,6 +21,15 @@ cmake .. -DMARKCORE_BUILD_CLI=ON
 make
 ```
 
+Building tests:
+```
+mkdir build
+cd build
+cmake .. -DMARKCORE_BUILD_TESTS=ON
+make
+./markcore-tests
+```
+
 ## Debugging Notes
 
 Useful for watching for memory leaks
