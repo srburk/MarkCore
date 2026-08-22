@@ -1,6 +1,7 @@
-
 #ifndef MARKCORE_TYPES_H
 #define MARKCORE_TYPES_H
+
+#include <stddef.h>
 
 typedef enum {
 	ROOT_NODE,
@@ -10,7 +11,7 @@ typedef enum {
 	HEADER_NODE,
 	IMAGE_NODE,
 	BOLD_NODE,
-	ITALIC_NODE, 
+	ITALIC_NODE,
 	CODE_INLINE_NODE,
 	UNORDERED_LIST_NODE,
 	ORDERED_LIST_NODE,
@@ -19,21 +20,38 @@ typedef enum {
 	NODE_TYPE_COUNT
 } MCNodeType_e;
 
+/* View into the original markdown buffer. Not NUL-terminated; not owned. */
+typedef struct {
+	const char *ptr;
+	size_t len;
+} MCSpan_t;
+
 typedef struct MCNode {
 	MCNodeType_e type;
-	char *content;
+	MCSpan_t content;
 	struct MCNode **children;
 	int child_count;
 	int child_capacity;
-	
-	// type-specific data
+
+	/* type-specific: heading level, or link/image URL span */
 	union {
 		int header_level;
+		MCSpan_t data;
 	};
-	
-	char *data;
-	
 } MCNode_t;
+
+static inline MCSpan_t mc_span_range(const char *start, const char *end)
+{
+	MCSpan_t s;
+	if (!start || !end || end < start) {
+		s.ptr = NULL;
+		s.len = 0;
+		return s;
+	}
+	s.ptr = start;
+	s.len = (size_t)(end - start);
+	return s;
+}
 
 static char *type_labels[NODE_TYPE_COUNT] = {
 	[ROOT_NODE] = "Root",

@@ -30,6 +30,16 @@ make
 ./markcore-tests
 ```
 
+Performance bench (three generated markdown classes; `--ci` enforces allocation/time ceilings):
+```
+mkdir build
+cd build
+cmake .. -DMARKCORE_BUILD_TESTS=ON -DCMAKE_BUILD_TYPE=Release
+make
+./markcore-bench
+./markcore-bench --ci
+```
+
 ## Debugging Notes
 
 Useful for watching for memory leaks
@@ -53,4 +63,4 @@ Enable debugging with flag `-DCMAKE_BUILD_TYPE=Debug`
 
 [X] Auto numbered list
 [X] Fix code blocks having HTML styling
-[] Refactor to store string bounds in original buffer instead of copying every time
+[X] Refactor to store string bounds in original buffer instead of copying every time

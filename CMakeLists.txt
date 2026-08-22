@@ -29,4 +29,16 @@ if(MARKCORE_BUILD_TESTS)
 	add_executable(markcore-tests tests/test_markcore.c)
 	target_link_libraries(markcore-tests PRIVATE markcore)
 	add_test(NAME markcore-tests COMMAND markcore-tests)
+
+	add_executable(markcore-bench tests/bench_markcore.c)
+	target_link_libraries(markcore-bench PRIVATE markcore)
+	if(NOT APPLE)
+		target_compile_definitions(markcore-bench PRIVATE MARKCORE_BENCH_WRAP_ALLOC=1)
+		target_link_options(markcore-bench PRIVATE
+			-Wl,--wrap=malloc
+			-Wl,--wrap=calloc
+			-Wl,--wrap=realloc
+			-Wl,--wrap=free)
+	endif()
+	add_test(NAME markcore-bench COMMAND markcore-bench --ci)
 endif()

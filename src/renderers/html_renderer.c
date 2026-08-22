@@ -7,10 +7,10 @@
 
 // Forward Declaration ======================================
 
-static size_t html_render_header(Renderer_t *r, int header_level, const char *text);
-static size_t html_render_text(Renderer_t *r,  const char *text);
-static size_t html_render_image(Renderer_t *r, const char *url, const char *alt);
-static size_t html_render_link(Renderer_t *r, const char *url, const char *text);
+static size_t html_render_header(Renderer_t *r, int header_level, MCSpan_t text);
+static size_t html_render_text(Renderer_t *r, MCSpan_t text);
+static size_t html_render_image(Renderer_t *r, MCSpan_t url, MCSpan_t alt);
+static size_t html_render_link(Renderer_t *r, MCSpan_t url, MCSpan_t text);
 
 static size_t html_render_line_end(Renderer_t* r);
 
@@ -19,8 +19,8 @@ static size_t html_render_paragraph_close(Renderer_t *r);
 
 static size_t html_render_code_block_open(Renderer_t *r);
 static size_t html_render_code_block_close(Renderer_t *r);
-static size_t html_render_code_block_line(Renderer_t *r, const char *text);
-static size_t html_render_code_inline(Renderer_t *r, const char *text);
+static size_t html_render_code_block_line(Renderer_t *r, MCSpan_t text);
+static size_t html_render_code_inline(Renderer_t *r, MCSpan_t text);
 
 static size_t html_render_bold_open(Renderer_t *r);
 static size_t html_render_bold_close(Renderer_t *r);
@@ -92,10 +92,11 @@ static size_t html_emit(FILE *outfile, const char *fmt, ...) {
     return (written < 0) ? 0 : (size_t)written;
 }
 
-static size_t html_emit_escaped(FILE *outfile, const char *text, int is_attr) {
-	if (!text) return 0;
+static size_t html_emit_escaped(FILE *outfile, MCSpan_t text, int is_attr) {
+	if (!text.ptr || !text.len) return 0;
 	size_t written = 0;
-	for (const char *p = text; *p; p++) {
+	const char *end = text.ptr + text.len;
+	for (const char *p = text.ptr; p < end; p++) {
 		const char *rep = NULL;
 		switch (*p) {
 			case '&':  rep = "&amp;"; break;
@@ -115,7 +116,7 @@ static size_t html_emit_escaped(FILE *outfile, const char *text, int is_attr) {
 
 // Renderer Functions ==============================================
 
-static size_t html_render_header(Renderer_t *r, int header_level, const char *text) {
+static size_t html_render_header(Renderer_t *r, int header_level, MCSpan_t text) {
 	if (header_level < 1) header_level = 1;
 	if (header_level > 6) header_level = 6;
 	size_t written = html_emit(r->outfile, "<h%i>", header_level);
@@ -124,11 +125,11 @@ static size_t html_render_header(Renderer_t *r, int header_level, const char *te
 	return written;
 }
 
-static size_t html_render_text(Renderer_t *r,  const char *text) {
+static size_t html_render_text(Renderer_t *r, MCSpan_t text) {
 	return html_emit_escaped(r->outfile, text, 0);
 }
 
-static size_t html_render_image(Renderer_t *r, const char *url, const char *alt) {
+static size_t html_render_image(Renderer_t *r, MCSpan_t url, MCSpan_t alt) {
 	size_t written = html_emit(r->outfile, "<img src=\"");
 	written += html_emit_escaped(r->outfile, url, 1);
 	written += html_emit(r->outfile, "\" alt=\"");
@@ -137,7 +138,7 @@ static size_t html_render_image(Renderer_t *r, const char *url, const char *alt)
 	return written;
 }
 
-static size_t html_render_link(Renderer_t *r, const char *url, const char *text) {
+static size_t html_render_link(Renderer_t *r, MCSpan_t url, MCSpan_t text) {
 	size_t written = html_emit(r->outfile, "<a href=\"");
 	written += html_emit_escaped(r->outfile, url, 1);
 	written += html_emit(r->outfile, "\">");
@@ -162,11 +163,11 @@ static size_t html_render_code_block_close(Renderer_t *r) {
 	return html_emit(r->outfile, "</code></pre>");
 }
 
-static size_t html_render_code_block_line(Renderer_t *r, const char *text) {
+static size_t html_render_code_block_line(Renderer_t *r, MCSpan_t text) {
 	return html_emit_escaped(r->outfile, text, 0);
 }
 
-static size_t html_render_code_inline(Renderer_t *r, const char *text) {
+static size_t html_render_code_inline(Renderer_t *r, MCSpan_t text) {
 	size_t written = html_emit(r->outfile, "<code>");
 	written += html_emit_escaped(r->outfile, text, 0);
 	written += html_emit(r->outfile, "</code>");

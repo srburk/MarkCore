@@ -4,7 +4,12 @@
 #include <stdlib.h>
 #include "types.h"
 
-// Parse full markdown buffer and return tree
+/*
+ * Parse a markdown buffer into an AST.
+ *
+ * Node content/data are spans into `markdown`; that buffer must remain
+ * valid until markcore_free_syntax_tree() is called on the returned tree.
+ */
 MCNode_t *markcore_parse(const char *markdown, size_t len);
 void markcore_free_syntax_tree(MCNode_t *root);
 

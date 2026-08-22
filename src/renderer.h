@@ -12,10 +12,10 @@ typedef struct Renderer {
 	
 	FILE *outfile;
 
-	size_t (*render_header)(struct Renderer*, int header_level, const char *text);	
-	size_t (*render_text)(struct Renderer*, const char *text);
-	size_t (*render_image)(struct Renderer*, const char *url, const char *alt);
-	size_t (*render_link)(struct Renderer*, const char *url, const char *text);
+	size_t (*render_header)(struct Renderer*, int header_level, MCSpan_t text);
+	size_t (*render_text)(struct Renderer*, MCSpan_t text);
+	size_t (*render_image)(struct Renderer*, MCSpan_t url, MCSpan_t alt);
+	size_t (*render_link)(struct Renderer*, MCSpan_t url, MCSpan_t text);
 	
 	size_t (*render_line_end)(struct Renderer*);
 	
@@ -24,9 +24,9 @@ typedef struct Renderer {
 	
 	size_t (*render_code_block_open)(struct Renderer*);
 	size_t (*render_code_block_close)(struct Renderer*);
-	size_t (*render_code_block_line)(struct Renderer*, const char *text);
-	
-	size_t (*render_code_inline)(struct Renderer*, const char *text);
+	size_t (*render_code_block_line)(struct Renderer*, MCSpan_t text);
+
+	size_t (*render_code_inline)(struct Renderer*, MCSpan_t text);
 	
 	size_t (*render_bold_open)(struct Renderer*);
 	size_t (*render_bold_close)(struct Renderer*);
